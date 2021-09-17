@@ -1,8 +1,16 @@
 from abc import ABC, abstractmethod
-from typing import Callable, Tuple
 
-import jax.numpy as jnp
+from pydeco.types import *
 
 
 class Controller(ABC):
-    pass
+    _cache = None
+
+    def solve(
+            self,
+            x0: Tensor,
+            t0: float,
+            tn: float,
+            n_steps: int,
+    ) -> Tuple[Tensors, float, Dict]:
+        raise NotImplementedError
