@@ -1,4 +1,10 @@
-## PyDeCo - Decentralized Control Algorithms written in JAX
+<p align="center">
+  <img width="90" height="33" src="./artifacts/logo.png">
+</p>
+
+<h2 align='center'>Playground for Decentralized and Distributed Control Algorithms</h2>
+
+----
 
 ### Usage
 
@@ -8,29 +14,18 @@
 $ pip install git+https://github.com/cor3bit/pydeco.git
 ```
 
-- Specify a problem using `jax.numpy` arrays:
+TODO
 
-```python
-import jax.numpy as jnp
-
-#TODO
-```
-
-- Select a controller:
-
-```python
-import pydeco
-
-#TODO
-```
 
 ### Supported Controllers
 
 TODO
 
+
 ### Acknowledgements
 
 TODO
+
 
 ### References
 
