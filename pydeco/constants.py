@@ -9,6 +9,12 @@ class ContainerMeta(type):
         return item in cls.all()
 
 
-class CONTROLLER_TYPE(metaclass=ContainerMeta):
-    analytic = 'analytic'
-    gnn = 'gnn'
+class ControllerType(metaclass=ContainerMeta):
+    ANALYTICAL = 'analytical'
+    GNN = 'gnn'
+    QLEARN = 'Q-learning'
+
+
+class PolicyType(metaclass=ContainerMeta):
+    EPS_GREEDY = 'epsilon_greedy'
+    GREEDY = 'greedy'

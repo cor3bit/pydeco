@@ -2,24 +2,22 @@ import pytest
 
 import numpy as np
 from scipy.linalg import solve_discrete_are as dare
-import jax.numpy as jnp
 
 from pydeco.controller.analytic_lqr import AnalyticalLQR
+from pydeco.problem.lq import LQ
 
 
 @pytest.fixture()
 def setup():
     # DS params
-    A = jnp.array([
+    A = np.array([
         [0.3, 0.7, 0],
         [0.4, 0.5, 0.2],
         [0, 0.2, 0.4],
-    ], jnp.float32)
-    B = jnp.eye(3, dtype=jnp.float32)
-
-    # reward params
-    Q = jnp.eye(3, dtype=jnp.float32)
-    R = jnp.eye(3, dtype=jnp.float32)
+    ])
+    B = np.eye(3)
+    Q = np.eye(3)
+    R = np.eye(3)
 
     return A, B, Q, R
 
@@ -36,8 +34,9 @@ def test_fit(setup):
     )
 
     # pydeco solution
-    lqr = AnalyticalLQR(A, B, Q, R)
-    lqr.fit(n_steps=10)
+    lqr = AnalyticalLQR()
+    lq = LQ(A, B, Q, R)
+    lqr.train(lq, n_steps=10)
 
     # comparison
     # P
@@ -61,11 +60,12 @@ def test_simulate_trajectory(setup):
     A, B, Q, R = setup
 
     # sim params
-    x0 = jnp.array([1, 1, 1], jnp.float32)
+    x0 = np.array([1, 1, 1])
     t0, tn, n_steps = 0., 1., 20
 
-    lqr = AnalyticalLQR(A, B, Q, R)
-    lqr.fit(n_steps=n_steps)
-    xs, us, tcost, info = lqr.simulate_trajectory(x0, t0, tn, n_steps)
+    lq = LQ(A, B, Q, R)
+    lqr = AnalyticalLQR()
+    lqr.train(lq, n_steps=n_steps)
+    xs, us, tcost = lqr.simulate_trajectory(lq, x0, t0, tn, n_steps)
 
-    assert 1.57543253898 == pytest.approx(tcost, abs=1e-8)
+    assert 4.57543253638 == pytest.approx(tcost, abs=1e-8)
