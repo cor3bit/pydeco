@@ -2,7 +2,7 @@ import pytest
 
 import numpy as np
 
-from pydeco.controller.qlearning_lqr import QlearningLQR
+from pydeco.controller.lq_qlearn_agent import QlearningLQR
 from pydeco.problem.lq import LQ
 
 

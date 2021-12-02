@@ -1,8 +1,8 @@
 import numpy as np
 
 from pydeco.problem.lq import LQ
-from pydeco.controller.analytic_lqr import AnalyticalLQR
-from pydeco.controller.qlearning_lqr import QlearningLQR
+from pydeco.controller.lq_analytic_agent import AnalyticalLQR
+from pydeco.controller.lq_qlearn_agent import QlearningLQR
 
 
 def run():

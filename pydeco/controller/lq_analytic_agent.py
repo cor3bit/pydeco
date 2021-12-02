@@ -7,6 +7,7 @@ from pydeco.constants import PolicyType
 from pydeco.types import *
 from pydeco.controller.lqr import LQR
 from pydeco.problem.lq import LQ
+from pydeco.problem.centralized_lq import CeLQ
 
 
 class AnalyticalLQR(LQR):
@@ -31,7 +32,7 @@ class AnalyticalLQR(LQR):
 
     def train(
             self,
-            env: LQ,
+            env: LQ | CeLQ,
             n_steps: int = 10,
     ):
         if self._calibrated:

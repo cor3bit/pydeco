@@ -3,7 +3,7 @@ import pytest
 import numpy as np
 from scipy.linalg import solve_discrete_are as dare
 
-from pydeco.controller.analytic_lqr import AnalyticalLQR
+from pydeco.controller.lq_analytic_agent import AnalyticalLQR
 from pydeco.problem.lq import LQ
 
 
@@ -34,8 +34,11 @@ def test_fit(setup):
     )
 
     # pydeco solution
-    lqr = AnalyticalLQR()
+    # env
     lq = LQ(A, B, Q, R)
+
+    # agent
+    lqr = AnalyticalLQR()
     lqr.train(lq, n_steps=10)
 
     # comparison

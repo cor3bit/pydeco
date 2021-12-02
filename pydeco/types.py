@@ -6,5 +6,5 @@ Tensor = ndarray
 Tensors = Sequence[Tensor]
 TensorOrTensors = Union[Tensor, Tensors]
 
-Scalar = Union[float, Tensor]
+Scalar = float
 Vector = Union[Sequence[float], Tensor]

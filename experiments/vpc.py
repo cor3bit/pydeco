@@ -1,7 +1,7 @@
 import numpy as np
 
 from pydeco.problem.platoon import VehiclePlatoon
-from pydeco.controller.qlearning_lqr import QlearningLQR
+from pydeco.controller.lq_qlearn_agent import QlearningLQR
 
 
 def run():

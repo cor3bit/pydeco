@@ -7,75 +7,76 @@ from pydeco.types import *
 class LQ(Env):
     def __init__(
             self,
-            A: Tensor,
-            B: Tensor,
-            Q: Tensor,
-            R: Tensor,
+            system_matrix: Tensor,
+            control_matrix: Tensor,
+            state_reward_matrix: Tensor,
+            action_reward_matrix: Tensor,
     ):
+        # save params
+        self._A = system_matrix
+        self._B = control_matrix
+        self._Q = state_reward_matrix
+        self._R = action_reward_matrix
+
         # dimension check
-        n, n_ = A.shape
-        assert n == n_
-        self._n_x = n
+        self._check_dimensions()
 
-        n_, m = B.shape
+    def _check_dimensions(self):
+        n, n_ = self._A.shape
         assert n == n_
-        self._n_u = m
+        self._n_s = n
 
-        q_n, q_n_ = Q.shape
+        n_, m = self._B.shape
+        assert n == n_
+        self._n_a = m
+
+        q_n, q_n_ = self._Q.shape
         assert q_n == n
         assert q_n_ == n
 
-        r_m, r_m_ = R.shape
+        r_m, r_m_ = self._R.shape
         assert r_m == m
         assert r_m_ == m
 
-        # save params
-        self._A = A
-        self._B = B
-        self._Q = Q
-        self._R = R
-
-        # initial guess
-        self._x = None
+    @property
+    def n_s(self):
+        return self._n_s
 
     @property
-    def n_x(self):
-        return self._n_x
+    def n_a(self):
+        return self._n_a
 
-    @property
-    def n_u(self):
-        return self._n_u
-
-    def reset(self, x0: Tensor):
-        assert np.prod(x0.shape) == self._n_x
-        self._x = x0.reshape((self._n_x, 1))
-        return self._x
-
-    def step(
+    def reset(
             self,
-            u: Tensor,
-    ) -> Tuple[Tensor, Tensor]:
-        # stage cost
-        r_k = self._x.T @ self._Q @ self._x + u.T @ self._R @ u
-        r_k = r_k.reshape((-1,))[0]
-
-        # update state
-        next_x_k = self._A @ self._x + self._B @ u
-        self._x = next_x_k
-
-        # return resulting state & cost
-        return r_k, next_x_k
+            initial_state: Tensor,
+    ) -> Tensor:
+        assert np.prod(initial_state.shape) == self._n_s
+        self._state = initial_state.reshape((self._n_s, 1))
+        return self._state
 
     def terminal_cost(
             self,
-            xf: Tensor = None,
-    ) -> Tensor:
-        x = self._x if xf is None else xf
-        return x.T @ self._Q @ x
+            final_state: Tensor = None,
+    ) -> Scalar:
+        s = self._state if final_state is None else final_state
+        r = s.T @ self._Q @ s
+        return r.item()
 
     def get_model(self) -> Tuple[Tensor, Tensor, Tensor, Tensor]:
         return self._A, self._B, self._Q, self._R
 
     def get_state(self) -> Tensor:
-        return self._x
+        return self._state
 
+    def _transition_fn(
+            self,
+            action: Tensor,
+    ) -> Tensor:
+        return self._A @ self._state + self._B @ action
+
+    def _reward_fn(
+            self,
+            action: Tensor,
+    ) -> Scalar:
+        r = self._state.T @ self._Q @ self._state + action.T @ self._R @ action
+        return r.item()
