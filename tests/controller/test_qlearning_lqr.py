@@ -1,9 +1,11 @@
 import pytest
 
 import numpy as np
+from scipy.linalg import solve_discrete_are as dare
 
-from pydeco.controller.lq_qlearn_agent import QlearningLQR
+from pydeco.controller.lqr import LQR
 from pydeco.problem.lq import LQ
+from pydeco.constants import TrainMethod
 
 
 @pytest.fixture()
@@ -21,8 +23,88 @@ def setup():
     return A, B, Q, R
 
 
+def test_fit_qlearn(setup):
+    A, B, Q, R = setup
+
+    # pydeco solution
+    # env
+    lq = LQ(A, B, Q, R)
+
+    # agent
+    lqr = LQR()
+
+    # train params
+    gamma = 1.0
+    lqr.train(lq, TrainMethod.QLEARN, gamma)
+
+    # comparison
+    # numpy solution
+    np_P = dare(
+        np.array(A * np.sqrt(gamma)),
+        np.array(B * np.sqrt(gamma)),
+        np.array(Q),
+        np.array(R),
+    )
+
+    # P
+    np.testing.assert_array_almost_equal(
+        lqr.P,
+        np.array(lqr._P),
+        decimal=7,
+    )
+
+    # K
+    np.testing.assert_array_almost_equal(
+        np.array([[-0.17794839, -0.39653113, -0.01332207],
+                  [-0.2498468, -0.33199662, -0.12628551],
+                  [-0.01135366, -0.12226867, -0.21419297]]),
+        np.array(lqr.K),
+        decimal=7,
+    )
+
+
+def test_fit_qlearn_ls(setup):
+    A, B, Q, R = setup
+
+    # pydeco solution
+    # env
+    lq = LQ(A, B, Q, R)
+
+    # agent
+    lqr = LQR()
+
+    # train params
+    gamma = 1.0
+    lqr.train(lq, TrainMethod.QLEARN_LS, gamma)
+
+    # comparison
+    # numpy solution
+    np_P = dare(
+        np.array(A * np.sqrt(gamma)),
+        np.array(B * np.sqrt(gamma)),
+        np.array(Q),
+        np.array(R),
+    )
+
+    # P
+    np.testing.assert_array_almost_equal(
+        lqr.P,
+        np.array(lqr._P),
+        decimal=7,
+    )
+
+    # K
+    np.testing.assert_array_almost_equal(
+        np.array([[-0.17794839, -0.39653113, -0.01332207],
+                  [-0.2498468, -0.33199662, -0.12628551],
+                  [-0.01135366, -0.12226867, -0.21419297]]),
+        np.array(lqr.K),
+        decimal=7,
+    )
+
+
 def test_build_feature_vector():
-    lqr = QlearningLQR()
+    lqr = LQR()
 
     s = np.array([1, 2])
     a = np.array([3])
@@ -38,7 +120,7 @@ def test_build_feature_vector():
 
 
 def test_convert_to_parameter_matrix():
-    lqr = QlearningLQR()
+    lqr = LQR()
 
     # set-up
     s = np.array([1, 2])

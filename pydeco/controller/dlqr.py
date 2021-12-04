@@ -1,15 +1,13 @@
 import logging
-from time import perf_counter
 
 import numpy as np
 
-from pydeco.constants import PolicyType
 from pydeco.types import *
-from pydeco.controller.ma_agent import CollaboratingAgent
-from pydeco.problem.lq import LQ
+from pydeco.problem.distributed_lq import DiLQ
+from pydeco.controller.agent import CollaboratingAgent
 
 
-class CollaboratingQlearnAgent(CollaboratingAgent):
+class DLQR(CollaboratingAgent):
     def __init__(
             self,
             agent_id: int,

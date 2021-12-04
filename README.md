@@ -17,9 +17,21 @@ $ pip install git+https://github.com/cor3bit/pydeco.git
 TODO
 
 
+
+### Supported Environments
+
+* Vanilla LQ
+* Centralized LQ
+* Distributed LQ
+* Non-linear Vehicle Platoon Model
+
 ### Supported Controllers
 
-TODO
+* LQR Analytical
+* LQR Centralized Q-learning
+* LQR Centralized Least Squares Q-learning  
+* Multi-agent LQR Q-learning (in progress)
+* Multi-agent Q-learning (in progress)
 
 
 ### Acknowledgements

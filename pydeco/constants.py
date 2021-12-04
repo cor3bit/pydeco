@@ -9,12 +9,17 @@ class ContainerMeta(type):
         return item in cls.all()
 
 
-class ControllerType(metaclass=ContainerMeta):
+class TrainMethod(metaclass=ContainerMeta):
     ANALYTICAL = 'analytical'
-    GNN = 'gnn'
+    QLEARN_LS = 'Least Squares Q-learning'
     QLEARN = 'Q-learning'
 
 
 class PolicyType(metaclass=ContainerMeta):
-    EPS_GREEDY = 'epsilon_greedy'
+    RANDOM = 'random'
+    EPS_GREEDY = 'epsilon greedy'
     GREEDY = 'greedy'
+
+
+class NoiseShape(metaclass=ContainerMeta):
+    MV_NORMAL = 'MVNormal'

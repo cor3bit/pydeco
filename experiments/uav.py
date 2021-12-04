@@ -1,8 +1,10 @@
+# Experiment based on alemzadeh18
+# Web: https://arxiv.org/abs/1809.08745
+
 import numpy as np
 
 from pydeco.problem.lq import LQ
-from pydeco.controller.lq_analytic_agent import AnalyticalLQR
-from pydeco.controller.lq_qlearn_agent import QlearningLQR
+from pydeco.controller.sort.lq_analytic_agent import AnalyticalLQR
 
 
 def run():
@@ -56,38 +58,11 @@ def run():
     A_, B_, Q_, R_ = convert_to_ma_model(A, B, Q, R, 3, [(1, 2), (2, 3)])
     lq = LQ(A_, B_, Q_, R_)
 
-    alqr.train(lq, n_steps=n_steps)
+    alqr.train(lq)
     # print(f'P: {alqr._P}')
     K = alqr._K
 
     print(f'K: {alqr._K}')
-
-
-def convert_to_ma_model(A, B, Q, R, n_agents, edges):
-    # TODO dimension checks
-
-    I_n = np.eye(n_agents)
-    A_ = np.kron(I_n, A)
-    B_ = np.kron(I_n, B)
-    R_ = np.kron(I_n, R)
-
-    # TODO hardcode
-    q_m, q_n = Q.shape
-    Q_ = np.zeros((n_agents * q_m, n_agents * q_n))
-    # diagonal
-    Q_[:5, :5] = 2 * Q
-    Q_[5:10, 5:10] = 3 * Q
-    Q_[10:15, 10:15] = 2 * Q
-
-    # off-diagonal
-    Q_[5:10, :5] = -Q
-    Q_[5:10, 10:15] = -Q
-    Q_[:5, 5:10] = -Q
-    Q_[10:15, 5:10] = -Q
-
-    # Q_ = np.kron(I_n, Q)
-
-    return A_, B_, Q_, R_
 
 
 if __name__ == '__main__':
