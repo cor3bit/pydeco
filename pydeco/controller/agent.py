@@ -30,12 +30,3 @@ class Agent(ABC):
             n_steps: int,
     ) -> Tuple[Tensor, Tensor, float]:
         raise NotImplementedError
-
-
-class CollaboratingAgent(ABC):
-    def act(
-            self,
-            state: Tensor,
-            information: Tensors,
-    ) -> Tuple[Tensor, Tensor]:
-        raise NotImplementedError

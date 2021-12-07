@@ -188,9 +188,15 @@ class LQR(Agent):
 
         return P, K
 
+    def _ls_policy_eval(self):
+        pass
+
+    def _ls_policy_improve(self):
+        pass
+
     def _train_qlearn_ls_lqr(
             self,
-            env: LQ | CeLQ,
+            env: LQ,
             initial_state: Tensor,
             initial_policy: Tensor,
             gamma: Scalar = 1.,

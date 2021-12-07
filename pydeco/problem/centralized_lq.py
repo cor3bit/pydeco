@@ -13,15 +13,13 @@ class CeLQ(LQ):
             # communication topology
             n_agents: int,
             communication_links: Sequence[Tuple],
+            double_count_rewards: bool,
 
             # individual LQ params
             system_matrix: Tensor,
             control_matrix: Tensor,
             state_reward_matrix: Tensor,
             action_reward_matrix: Tensor,
-
-            #
-            double_count_rewards: bool = False,
     ):
         A, B, Q, R = self._convert_to_ma_model(
             n_agents, communication_links, system_matrix, control_matrix,
@@ -30,8 +28,8 @@ class CeLQ(LQ):
 
         super().__init__(A, B, Q, R)
 
+    @staticmethod
     def _convert_to_ma_model(
-            self,
             n_agents: int,
             edges: Sequence[Tuple],
             A: Tensor,

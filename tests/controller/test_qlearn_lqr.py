@@ -7,56 +7,8 @@ from pydeco.controller.lqr import LQR
 from pydeco.problem.lq import LQ
 from pydeco.constants import TrainMethod
 
-
-@pytest.fixture()
-def wang20():
-    # DS params: wang20
-    n_x = 4
-    n_u = 4
-
-    # env params
-    A = np.array([
-        [0.2, 0.4, 0.1, 0.01],
-        [0.4, 0.2, 0.3, 0.1],
-        [0.1, 0.3, 0.3, 0.4],
-        [0.2, 0.1, 0.5, 0.3],
-    ])
-
-    B = np.eye(n_u)
-    Q = -np.eye(n_x)
-    R = -np.eye(n_u)
-
-    K0 = -1. * np.array([
-        [1, 1, 0.0004, 2],
-        [1, 0.2, 1, 0.1],
-        [4, 0.1, 1, 3],
-        [0.2, 0.1, 0.3, 0.2],
-    ])
-    s0 = np.full(shape=(4,), fill_value=0.01)
-
-    return A, B, Q, R, s0, K0
-
-
-@pytest.fixture()
-def goerges19():
-    # DS params: wang20
-    n_x = 3
-    n_u = 3
-
-    # env params
-    A = np.array([
-        [0.3, 0.7, 0],
-        [0.4, 0.5, 0.2],
-        [0, 0.2, 0.4],
-    ])
-    B = np.eye(3)
-    Q = -np.eye(3)
-    R = -np.eye(3)
-
-    K0 = np.full(shape=(n_x, n_x), fill_value=-1.)
-    s0 = np.full(shape=(n_x,), fill_value=1.)
-
-    return A, B, Q, R, s0, K0
+from tests.cases import goerges19
+from tests.utils import true_P_K
 
 
 def test_fit_qlearn_ls(goerges19):
@@ -151,17 +103,3 @@ def test_convert_to_parameter_matrix():
     v1 = sa.T @ H @ sa
 
     assert v1 == v2
-
-
-def true_P_K(A, B, Q, R, gamma):
-    # numpy solution
-    P = dare(
-        np.array(A * np.sqrt(gamma)),
-        np.array(B * np.sqrt(gamma)),
-        np.array(Q),
-        np.array(R),
-    )
-
-    K = - np.linalg.inv(R + B.T @ P @ B) @ B.T @ P @ A
-
-    return P, K

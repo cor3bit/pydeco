@@ -5,47 +5,17 @@ from numpy.testing import assert_array_equal, assert_array_almost_equal
 
 from pydeco.problem.centralized_lq import CeLQ
 
-
-@pytest.fixture()
-def setup():
-    # UAV example
-    n_s = 5
-    n_a = 3
-
-    A = np.array(
-        [
-            [0.0000, 0.0000, 1.1320, 0.0000, -1.000],
-            [0.0000, -0.0538, -0.1712, 0.0000, 0.0705],
-            [0.0000, 0.0000, 0.0000, 1.0000, 0.0000],
-            [0.0000, 0.0485, 0.0000, -0.8556, -1.013],
-            [0.0000, -0.2909, 0.0000, 1.0532, -0.6859],
-        ]
-    )
-
-    B = np.array(
-        [
-            [0.0000, 0.0000, 0.0000],
-            [-0.120, 1.0000, 0.0000],
-            [0.0000, 0.0000, 0.0000],
-            [4.4190, 0.0000, -1.665],
-            [1.5750, 0.0000, -0.0732],
-        ]
-    )
-
-    Q = -np.eye(n_s)
-    R = -np.eye(n_a)
-
-    return A, B, Q, R
+from tests.cases import alemzadeh18
 
 
-def test_celq(setup):
-    A, B, Q, R = setup
+def test_celq(alemzadeh18):
+    A, B, Q, R = alemzadeh18
 
     n_agents = 3
     edges = [(1, 2), (2, 1), (2, 3), (3, 2)]
     neighbors = {0: [1, ], 1: [0, 2], 2: [1, ]}
 
-    celq = CeLQ(n_agents, edges, A, B, Q, R, double_count_rewards=True)
+    celq = CeLQ(n_agents, edges, True, A, B, Q, R)
 
     # model params
     A1, B1, Q1, R1 = celq.get_model()

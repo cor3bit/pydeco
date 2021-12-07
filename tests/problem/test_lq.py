@@ -5,24 +5,11 @@ from numpy.testing import assert_array_equal
 
 from pydeco.problem.lq import LQ
 
-
-@pytest.fixture()
-def setup():
-    # DS params
-    A = np.array([
-        [0.3, 0.7, 0],
-        [0.4, 0.5, 0.2],
-        [0, 0.2, 0.4],
-    ])
-    B = np.eye(3)
-    Q = -np.eye(3)
-    R = -np.eye(3)
-
-    return A, B, Q, R
+from tests.cases import goerges19
 
 
-def test_lq(setup):
-    A, B, Q, R = setup
+def test_lq(goerges19):
+    A, B, Q, R, s0, K0 = goerges19
 
     # init
     lq = LQ(A, B, Q, R)
@@ -30,7 +17,6 @@ def test_lq(setup):
     assert lq.n_a == 3
 
     # reset
-    s0 = np.ones(shape=(3,))
     lq.reset(s0)
     curr_state = lq.get_state()
     assert_array_equal(curr_state, s0.reshape((3, 1)))

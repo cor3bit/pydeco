@@ -1,30 +1,17 @@
 import pytest
 
 import numpy as np
-from scipy.linalg import solve_discrete_are as dare
 
 from pydeco.controller.lqr import LQR
 from pydeco.problem.lq import LQ
 from pydeco.constants import TrainMethod
 
-
-@pytest.fixture()
-def setup():
-    # DS params
-    A = np.array([
-        [0.3, 0.7, 0],
-        [0.4, 0.5, 0.2],
-        [0, 0.2, 0.4],
-    ])
-    B = np.eye(3)
-    Q = np.eye(3)
-    R = np.eye(3)
-
-    return A, B, Q, R
+from tests.cases import goerges19
+from tests.utils import true_P_K
 
 
-def test_fit(setup):
-    A, B, Q, R = setup
+def test_fit(goerges19):
+    A, B, Q, R, s0, K0 = goerges19
 
     # pydeco solution
     # env
@@ -38,33 +25,14 @@ def test_fit(setup):
     lqr.train(lq, TrainMethod.ANALYTICAL, gamma)
 
     # comparison
-    # numpy solution
-    np_P = dare(
-        np.array(A * np.sqrt(gamma)),
-        np.array(B * np.sqrt(gamma)),
-        np.array(Q),
-        np.array(R),
-    )
+    true_P, true_K = true_P_K(A, B, Q, R, gamma)
 
-    # P
-    np.testing.assert_array_almost_equal(
-        lqr.P,
-        np.array(lqr._P),
-        decimal=7,
-    )
-
-    # K
-    np.testing.assert_array_almost_equal(
-        np.array([[-0.17794839, -0.39653113, -0.01332207],
-                  [-0.2498468, -0.33199662, -0.12628551],
-                  [-0.01135366, -0.12226867, -0.21419297]]),
-        np.array(lqr.K),
-        decimal=7,
-    )
+    np.testing.assert_array_almost_equal(lqr.P, true_P, decimal=7)
+    np.testing.assert_array_almost_equal(lqr.K, true_K, decimal=7)
 
 
-def test_simulate_trajectory(setup):
-    A, B, Q, R = setup
+def test_simulate_trajectory(goerges19):
+    A, B, Q, R, s0, K0 = goerges19
 
     # sim params
     s0 = np.array([1, 1, 1])
@@ -77,4 +45,4 @@ def test_simulate_trajectory(setup):
 
     xs, us, tcost = lqr.simulate_trajectory(lq, s0, t0, tn, n_steps)
 
-    assert 4.57543253638 == pytest.approx(tcost, abs=1e-8)
+    assert -4.57543253638 == pytest.approx(tcost, abs=1e-8)

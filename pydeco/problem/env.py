@@ -8,19 +8,21 @@ class Env(ABC):
 
     def reset(
             self,
-            initial_state: Tensor
+            initial_state: Tensor,
+            **kwargs
     ) -> Tensor:
         raise NotImplementedError
 
     def step(
             self,
             action: Tensor,
+            **kwargs
     ) -> Tuple[Scalar, Tensor]:
         # get current reward
-        curr_reward = self._reward_fn(action)
+        curr_reward = self._reward_fn(action, **kwargs)
 
         # transition to next state
-        next_state = self._transition_fn(action)
+        next_state = self._transition_fn(action, **kwargs)
 
         # update internal state
         self._state = next_state
@@ -31,27 +33,13 @@ class Env(ABC):
     def _transition_fn(
             self,
             action: Tensor,
+            **kwargs
     ) -> Tensor:
         raise NotImplementedError
 
     def _reward_fn(
             self,
             action: Tensor,
+            **kwargs
     ) -> Scalar:
-        raise NotImplementedError
-
-
-class DistributedEnv(ABC):
-    def reset(
-            self,
-            initial_state: Tensors
-    ):
-        raise NotImplementedError
-
-    def step(
-            self,
-            agent_id: int,
-            action: Tensor,
-            information: Tensors,
-    ) -> Tuple[Tensor, Tensor]:
         raise NotImplementedError
