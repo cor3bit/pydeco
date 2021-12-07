@@ -1,4 +1,5 @@
 import logging
+from time import perf_counter
 from queue import Queue
 
 import numpy as np
@@ -62,7 +63,7 @@ class LQR(Agent):
             if self._noise_cache.empty():
                 self._refill_noise_cache()
 
-            noise = self._noise_cache.get()
+            noise = self._noise_cache.get().reshape((-1, 1))
             return self._K @ state + noise
         else:
             raise ValueError(f'Policy {policy_type} not supported.')
@@ -76,6 +77,7 @@ class LQR(Agent):
             max_iter: int = 100,
             initial_state: Tensor | None = None,
             initial_policy: Tensor | None = None,
+            alpha: Scalar = 0.01,
             **kwargs
     ):
         if self._calibrated:
@@ -88,9 +90,9 @@ class LQR(Agent):
             case TrainMethod.ANALYTICAL:
                 P, K = self._train_analytical_lqr(env, gamma, eps, max_iter)
             case TrainMethod.QLEARN:
-                P, K = self._train_qlearn_lqr()
+                P, K = self._train_qlearn_lqr(env, initial_state, initial_policy, gamma, alpha=alpha)
             case TrainMethod.QLEARN_LS:
-                P, K = self._train_qlearn_ls_lqr()
+                P, K = self._train_qlearn_ls_lqr(env, initial_state, initial_policy, gamma, eps=eps)
             case _:
                 raise ValueError(f'Method {method} not supported.')
 
@@ -192,6 +194,9 @@ class LQR(Agent):
             initial_state: Tensor,
             initial_policy: Tensor,
             gamma: Scalar = 1.,
+            max_policy_evals: int = 80,
+            max_policy_improves: int = 20,
+            eps: Scalar = 1e-6,
     ):
         # s
         curr_state = env.reset(initial_state)
@@ -200,43 +205,36 @@ class LQR(Agent):
         self._cache.clear()
 
         # initial stabilizing controller
-        # TODO internal self.K
-        K = initial_policy
-
-        n_max_pi_iters = 10
-        n_policy_evals = 45
-
         n_s = env.n_s
         n_a = env.n_a
-
-        self._noise_params = (np.zeros((n_a,)), np.eye(n_a), (1000, n_a))
-
         n_q = n_s + n_a
         p = int(n_q * (n_q + 1) / 2)
 
+        self._noise_params = (np.zeros((n_a,)), 0.01 * np.eye(n_a), (1000,))
+
+        self._K = initial_policy
         H_k = None
 
         beta = 1
         G_k = np.eye(p) * beta
-        theta = np.full((p, 1), fill_value=0.1)
+        theta = np.full((p, 1), fill_value=.0)
 
-        for k in range(n_max_pi_iters):
-            # compute exploration noise in advance
-            # noises = np.random.multivariate_normal(noise_mean, noise_cov, size=(n_policy_evals * 2,))
-            # noise_count = 0
+        pi_improve_iter = 0
+        pi_improve_converged = False
 
-            for i in range(n_policy_evals):
+        while not pi_improve_converged and pi_improve_iter < max_policy_improves:
+
+            pi_eval_iter = 0
+            pi_eval_converged = False
+
+            while not pi_eval_converged and pi_eval_iter < max_policy_evals:
                 # a
-                # TODO optimize reshape step
-                # noise1 = noises[noise_count, :].reshape((n_x, 1))
                 curr_action = self.act(curr_state, policy_type=PolicyType.EPS_GREEDY)
 
                 # r, s'
                 curr_reward, next_state = env.step(curr_action)
 
                 # max_a'
-                # TODO optimize reshape step
-                # noise2 = noises[noise_count + 1, :].reshape((n_x, 1))
                 next_action = self.act(next_state, policy_type=PolicyType.GREEDY)
 
                 # features from (s,a)
@@ -258,18 +256,30 @@ class LQR(Agent):
                 # update state
                 curr_state = next_state
 
+                # update counter
+                pi_eval_iter += 1
+
+                # convergence
+                theta_adj_diff = np.max(np.abs(theta_adj))
+                pi_eval_converged = theta_adj_diff < eps
+
             # policy improvement
             H_k = self._convert_to_parameter_matrix(theta, n_q)
             H_uk = H_k[n_s:, :n_s]
             H_uu = H_k[n_s:, n_s:]
 
             # argmax policy
-            K = -np.linalg.inv(H_uu) @ H_uk
+            K_new = -np.linalg.inv(H_uu) @ H_uk
 
-        # self._H = H_k
-        # self._P = H_k[:n_x, :n_x]
+            # update counter
+            pi_improve_iter += 1
 
-        return H_k[:n_s, :n_s], K
+            # convergence
+            # TODO consider stop at |P_new - P|
+            pi_improve_converged = np.max(np.abs(K_new - self._K)) < eps
+            self._K = K_new
+
+        return H_k[:n_s, :n_s], self._K
 
     def _train_qlearn_lqr(
             self,
@@ -277,79 +287,76 @@ class LQR(Agent):
             initial_state: Tensor,
             initial_policy: Tensor,
             gamma: Scalar = 1.,
+            alpha: Scalar = 0.005,
+            max_iter: int = 50,
+            eps: Scalar = 1e-6,
     ):
         # s
-        s0 = env.reset(initial_state)
+        curr_state = env.reset(initial_state)
 
         # clear previous results
         self._cache.clear()
 
         # initial stabilizing controller
-        K = initial_policy
-
-        n_policy_evals = 2000
-
-        n_x = env.n_x
-        n_u = env.n_u
-        noise_mean = np.zeros((n_u,))
-        noise_cov = np.eye(n_u)
-
-        n_q = n_x + n_u
+        n_s = env.n_s
+        n_a = env.n_a
+        n_q = n_s + n_a
         p = int(n_q * (n_q + 1) / 2)
 
+        self._noise_params = (np.zeros((n_a,)), np.eye(n_a), (1000,))
+
+        self._K = initial_policy
         H_k = None
 
-        gamma = 1.
+        theta = np.full((p, 1), fill_value=.0)
 
-        alpha = 0.005
+        self._noise_params = (np.zeros((n_a,)), np.eye(n_a), (1000,))
 
-        theta = np.full((p, 1), fill_value=-0.1)
+        pi_improve_iter = 0
+        pi_improve_converged = False
 
-        # compute exploration noise in advance
-        noises = np.random.multivariate_normal(noise_mean, noise_cov, size=(n_policy_evals * 2,))
-        noise_count = 0
-
-        for i in range(n_policy_evals):
+        while not pi_improve_converged and pi_improve_iter < max_iter:
             # a
-            # TODO optimize reshape step
-            # noise1 = noises[noise_count, :].reshape((n_x, 1))
-            u_k = self.act(x, policy_type=PolicyType.EPS_GREEDY)
+            curr_action = self.act(curr_state, policy_type=PolicyType.EPS_GREEDY)
 
             # r, s'
-            r_k, next_x_k = env.step(u_k)
+            curr_reward, next_state = env.step(curr_action)
 
             # max_a'
-            # TODO optimize reshape step
-            # noise2 = noises[noise_count + 1, :].reshape((n_x, 1))
-            next_u_k = self.act(next_x_k, policy_type=PolicyType.GREEDY)
+            next_action = self.act(next_state, policy_type=PolicyType.GREEDY)
 
             # features from (s,a)
-            f_x = self._build_feature_vector(x, u_k, p)
-            f_x_next = self._build_feature_vector(next_x_k, next_u_k, p)
+            f_x = self._build_feature_vector(curr_state, curr_action, p)
+            f_x_next = self._build_feature_vector(next_state, next_action, p)
 
-            # update params theta w/ RLS
-            # phi = f_x - gamma * f_x_next
-            # sss = self._q_value(f_x_next, theta, gamma)
-            theta_adj = alpha * (r_k + self._q_value(f_x_next, theta, gamma) - self._q_value(f_x, theta)) * f_x
+            # update params theta w/ Q-learning
+            theta_adj = alpha * (curr_reward + self._q_value(f_x_next, theta, gamma)
+                                 - self._q_value(f_x, theta)) * f_x
             theta += theta_adj
 
             # update state
-            x = next_x_k
-            noise_count += 2
+            curr_state = next_state
 
             # policy improvement
             H_k = self._convert_to_parameter_matrix(theta, n_q)
-            H_uk = H_k[n_x:, :n_x]
-            H_uu = H_k[n_x:, n_x:]
+            H_uk = H_k[n_s:, :n_s]
+            H_uu = H_k[n_s:, n_s:]
 
             # argmax policy
-            K = -np.linalg.inv(H_uu) @ H_uk
+            self._K = -np.linalg.inv(H_uu) @ H_uk
+
+            # update counter
+            pi_improve_iter += 1
+
+            # convergence
+            theta_adj_diff = np.max(np.abs(theta_adj))
+            pi_improve_converged = theta_adj_diff < eps
 
         # self._H = H_k
-        P = H_k[:n_x, :n_x]
+        # P = H_k[:n_s, :n_s]
         # self._calibrated = True
 
-        return P, K
+        return H_k[:n_s, :n_s], self._K
 
     def _q_value(
             self,
@@ -357,7 +364,8 @@ class LQR(Agent):
             theta,
             gamma=1.,
     ):
-        return (gamma * x.T @ theta)[0][0]
+        q = gamma * x.T @ theta
+        return q.item()
 
     def _build_feature_vector(
             self,
@@ -369,14 +377,23 @@ class LQR(Agent):
         sa = np.concatenate((s, a)).reshape((-1,))
         n = sa.shape[0]
 
-        x = np.empty((p, 1))
-
         # TODO optimize building quadratic features
+        # t1 = perf_counter()
+        # y = np.multiply(sa.reshape((-1, 1)), sa.reshape((1, -1)))
+        # y = np.outer(sa, sa)
+        # y_ind = np.triu_indices(y.shape[0])
+        # y_ = y[y_ind].reshape((-1, 1))
+        # tf_1 = perf_counter()-t1
+
+        # t2 = perf_counter()
+        x = np.empty((p, 1))
         c = 0
         for i in range(n):
             for j in range(i, n):
                 x[c, 0] = sa[i] * sa[j]
                 c += 1
+
+        # tf_2 = perf_counter()-t2
 
         return x
 
@@ -409,4 +426,4 @@ class LQR(Agent):
     def _refill_noise_cache(self):
         noise_mean, noise_cov, noise_size = self._noise_params
         noises = np.random.multivariate_normal(noise_mean, noise_cov, size=noise_size)
-        map(self._noise_cache.put, noises)
+        list(map(self._noise_cache.put, noises))

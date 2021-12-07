@@ -19,10 +19,13 @@ class CeLQ(LQ):
             control_matrix: Tensor,
             state_reward_matrix: Tensor,
             action_reward_matrix: Tensor,
+
+            #
+            double_count_rewards: bool = False,
     ):
         A, B, Q, R = self._convert_to_ma_model(
-            n_agents, communication_links, system_matrix,
-            control_matrix, state_reward_matrix, action_reward_matrix,
+            n_agents, communication_links, system_matrix, control_matrix,
+            state_reward_matrix, action_reward_matrix, double_count_rewards,
         )
 
         super().__init__(A, B, Q, R)
@@ -35,6 +38,7 @@ class CeLQ(LQ):
             B: Tensor,
             Q: Tensor,
             R: Tensor,
+            double_count_rewards: bool,
     ) -> Tuple[Tensor, Tensor, Tensor, Tensor]:
         I_n = np.eye(n_agents)
         A_ = np.kron(I_n, A)
@@ -49,7 +53,7 @@ class CeLQ(LQ):
             # A_G[i - 1, j - 1] = 1.
 
             # !! count edge for each agent
-            A_G[i - 1, j - 1] = 2.
+            A_G[i - 1, j - 1] = 2. if double_count_rewards else 1.
 
         D_G = np.diag(np.sum(A_G, axis=1))
         L_G = D_G - A_G

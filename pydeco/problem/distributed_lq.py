@@ -7,10 +7,16 @@ from pydeco.types import *
 class DiLQ(DistributedEnv):
     def __init__(
             self,
-            A: Tensor,
-            B: Tensor,
-            Q: Tensor,
-            R: Tensor,
+
+            # communication topology
+            n_agents: int,
+            communication_links: Sequence[Tuple],
+
+            # individual LQ params
+            system_matrix: Tensor,
+            control_matrix: Tensor,
+            state_reward_matrix: Tensor,
+            action_reward_matrix: Tensor,
     ):
         # dimension check
         n, n_ = A.shape

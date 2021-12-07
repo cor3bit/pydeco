@@ -45,7 +45,7 @@ def test_celq(setup):
     edges = [(1, 2), (2, 1), (2, 3), (3, 2)]
     neighbors = {0: [1, ], 1: [0, 2], 2: [1, ]}
 
-    celq = CeLQ(n_agents, edges, A, B, Q, R)
+    celq = CeLQ(n_agents, edges, A, B, Q, R, double_count_rewards=True)
 
     # model params
     A1, B1, Q1, R1 = celq.get_model()
