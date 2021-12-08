@@ -32,11 +32,11 @@ def test_dilq(wang20):
         assert_array_equal(s1_i, next_state)
 
         # reward
-        r0_i = calc_dilq_reward(i, communication_map[i], Q, R, s0, a0, n_s, n_a)
+        r0_i = calc_dilq_reward(i, communication_map[i], Q, R, s0, n_a)
         assert r0_i == curr_reward
 
 
-def calc_dilq_reward(i, neighbors, Q, R, s0, a0, n_s, n_a):
+def calc_dilq_reward(i, neighbors, Q, R, s0, n_a):
     r = 0.
 
     # self

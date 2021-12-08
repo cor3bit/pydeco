@@ -75,6 +75,8 @@ class LQR(Agent):
             gamma: Scalar = 1.,
             eps: Scalar = 1e-8,
             max_iter: int = 100,
+            max_policy_evals: int = 80,
+            max_policy_improves: int = 20,
             initial_state: Tensor | None = None,
             initial_policy: Tensor | None = None,
             alpha: Scalar = 0.01,
@@ -88,11 +90,31 @@ class LQR(Agent):
         # find optimal policy
         match method:
             case TrainMethod.ANALYTICAL:
-                P, K = self._train_analytical_lqr(env, gamma, eps, max_iter)
+                P, K = self._train_analytical_lqr(
+                    env,
+                    gamma,
+                    eps,
+                    max_iter,
+                )
             case TrainMethod.QLEARN:
-                P, K = self._train_qlearn_lqr(env, initial_state, initial_policy, gamma, alpha=alpha)
+                P, K = self._train_qlearn_lqr(
+                    env,
+                    initial_state,
+                    initial_policy,
+                    gamma,
+                    alpha=alpha,
+                    max_iter=max_iter,
+                )
             case TrainMethod.QLEARN_LS:
-                P, K = self._train_qlearn_ls_lqr(env, initial_state, initial_policy, gamma, eps=eps)
+                P, K = self._train_qlearn_ls_lqr(
+                    env,
+                    initial_state,
+                    initial_policy,
+                    gamma,
+                    max_policy_evals=max_policy_evals,
+                    max_policy_improves=max_policy_improves,
+                    eps=eps,
+                )
             case _:
                 raise ValueError(f'Method {method} not supported.')
 
@@ -156,6 +178,7 @@ class LQR(Agent):
             gamma: Scalar = 1.,
             eps: Scalar = 1e-8,
             max_iter: int = 100,
+            **kwargs
     ):
         # analytical solution requires access to the LQ model
         A, B, Q, R = env.get_model()
@@ -202,7 +225,8 @@ class LQR(Agent):
             gamma: Scalar = 1.,
             max_policy_evals: int = 80,
             max_policy_improves: int = 20,
-            eps: Scalar = 1e-6,
+            eps: Scalar = 1e-3,
+            **kwargs
     ):
         # s
         curr_state = env.reset(initial_state)
@@ -216,7 +240,7 @@ class LQR(Agent):
         n_q = n_s + n_a
         p = int(n_q * (n_q + 1) / 2)
 
-        self._noise_params = (np.zeros((n_a,)), 0.01 * np.eye(n_a), (1000,))
+        self._noise_params = (np.zeros((n_a,)), np.eye(n_a), (1000,))
 
         self._K = initial_policy
         H_k = None
@@ -295,7 +319,8 @@ class LQR(Agent):
             gamma: Scalar = 1.,
             alpha: Scalar = 0.005,
             max_iter: int = 50,
-            eps: Scalar = 1e-6,
+            eps: Scalar = 1e-8,
+            **kwargs
     ):
         # s
         curr_state = env.reset(initial_state)
@@ -309,8 +334,6 @@ class LQR(Agent):
         n_q = n_s + n_a
         p = int(n_q * (n_q + 1) / 2)
 
-        self._noise_params = (np.zeros((n_a,)), np.eye(n_a), (1000,))
-
         self._K = initial_policy
         H_k = None
 
@@ -318,10 +341,10 @@ class LQR(Agent):
 
         self._noise_params = (np.zeros((n_a,)), np.eye(n_a), (1000,))
 
-        pi_improve_iter = 0
-        pi_improve_converged = False
+        iter = 0
+        converged = False
 
-        while not pi_improve_converged and pi_improve_iter < max_iter:
+        while not converged and iter < max_iter:
             # a
             curr_action = self.act(curr_state, policy_type=PolicyType.EPS_GREEDY)
 
@@ -352,11 +375,11 @@ class LQR(Agent):
             self._K = -np.linalg.inv(H_uu) @ H_uk
 
             # update counter
-            pi_improve_iter += 1
+            iter += 1
 
             # convergence
             theta_adj_diff = np.max(np.abs(theta_adj))
-            pi_improve_converged = theta_adj_diff < eps
+            converged = theta_adj_diff < eps
 
         # self._H = H_k
         # P = H_k[:n_s, :n_s]

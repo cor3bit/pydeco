@@ -64,11 +64,12 @@ def goerges19():
         [0, 0.2, 0.4],
     ])
     B = np.eye(n_u)
+
     Q = -np.eye(n_x)
     R = -np.eye(n_u)
 
-    K0 = np.full(shape=(n_x, n_x), fill_value=-1.)
-    s0 = np.full(shape=(n_x,), fill_value=1.)
+    K0 = np.full(shape=(n_x, n_x), fill_value=-.01)
+    s0 = np.full(shape=(n_x,), fill_value=0.)
 
     return A, B, Q, R, s0, K0
 
