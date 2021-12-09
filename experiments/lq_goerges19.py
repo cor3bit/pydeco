@@ -1,8 +1,8 @@
 import numpy as np
 
+from pydeco.constants import *
 from pydeco.problem.lq import LQ
-from pydeco.controller.sort.lq_analytic_agent import AnalyticalLQR
-from pydeco.controller.sort.lq_qlearn_agent import QlearningLQR
+from pydeco.controller.lqr import LQR
 
 if __name__ == '__main__':
     np.set_printoptions(suppress=True)
@@ -16,8 +16,8 @@ if __name__ == '__main__':
         [0, 0.2, 0.4],
     ])
     B = np.eye(3)
-    Q = np.eye(3)
-    R = np.eye(3)
+    Q = -np.eye(3)
+    R = -np.eye(3)
 
     lq = LQ(A, B, Q, R)
 
@@ -27,26 +27,25 @@ if __name__ == '__main__':
 
     # Closed-form
     print('\nRiccati LQR:')
-    alqr = AnalyticalLQR()
+    lqr = LQR()
 
-    alqr.train(lq, n_steps=n_steps)
-    print(f'P: {alqr._P}')
-    print(f'K: {alqr._K}')
+    lqr.train(lq, method=TrainMethod.ANALYTICAL, initial_state=x0)
+    print(f'P: {lqr.P}')
+    print(f'K: {lqr.K}')
 
-    # xs, us, tcost = alqr.simulate_trajectory(lq, x0, t0, tn, n_steps)
-    # print(f'Total Cost: {tcost}')
+    xs, us, tcost = lqr.simulate_trajectory(lq, x0, t0, tn, n_steps)
+    print(f'Total Cost: {tcost}')
 
     # Q-learning
     print('\nQ-learning LQR:')
-    qlqr = QlearningLQR()
 
-    # TODO initial stabilizing controller
-    K0 = np.full_like(alqr._K, fill_value=-0.1)
-    # K0 = np.copy(alqr._K)
+    # initial stabilizing controller
+    K0 = np.full_like(lqr.K, fill_value=-0.1)
 
-    qlqr.train2(lq, K0=K0, x0=x0)
-    print(f'P: {qlqr._P}')
-    print(f'K: {qlqr._K}')
+    lqr.train(lq, method=TrainMethod.QLEARN_LS,
+              initial_state=x0, initial_policy=K0)
+    print(f'P: {lqr.P}')
+    print(f'K: {lqr.K}')
 
-    # xs, us, tcost = qlqr.simulate_trajectory(lq, x0, t0, tn, n_steps)
-    # print(f'Total Cost: {tcost}')
+    xs, us, tcost = lqr.simulate_trajectory(lq, x0, t0, tn, n_steps)
+    print(f'Total Cost: {tcost}')

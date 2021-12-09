@@ -59,8 +59,9 @@ class LQ(Env):
             initial_state: Tensor,
             **kwargs
     ) -> Tensor:
-        assert np.prod(initial_state.shape) == self._n_s
-        self._state = initial_state.reshape((self._n_s, 1))
+        # assert np.prod(initial_state.shape) == self._n_s
+        # self._state = initial_state.reshape((self._n_s, 1))
+        self._state = initial_state.reshape((-1, 1))
         return self._state
 
     def terminal_cost(

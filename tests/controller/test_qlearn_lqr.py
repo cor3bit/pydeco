@@ -26,7 +26,7 @@ def test_fit_qlearn_ls(goerges19):
     # train params
     gamma = 1.0
     n_evals = 100
-    n_improves = 200
+    n_improves = 5
 
     lqr.train(
         lq,
@@ -45,7 +45,7 @@ def test_fit_qlearn_ls(goerges19):
     max_diff = np.max(np.abs(calc_K - true_K))
 
     print(max_diff)
-    assert max_diff < .01
+    assert max_diff < .0001
 
     # np.testing.assert_array_almost_equal(calc_P, true_P, decimal=7)
     # np.testing.assert_array_almost_equal(calc_K, true_K, decimal=7)

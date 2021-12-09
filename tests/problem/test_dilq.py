@@ -17,7 +17,6 @@ def test_dilq(wang20):
     envs = create_distributed_envs(n_agents, communication_map, False, True, A, B, Q, R)
 
     n_s, n_a = B.shape
-    a0 = np.ones(n_a)
 
     for i, env in enumerate(envs):
         s0_i = np.reshape(s0 * i, (-1, 1))
@@ -32,11 +31,11 @@ def test_dilq(wang20):
         assert_array_equal(s1_i, next_state)
 
         # reward
-        r0_i = calc_dilq_reward(i, communication_map[i], Q, R, s0, n_a)
+        r0_i = _calc_dilq_reward(i, communication_map[i], Q, R, s0, n_a)
         assert r0_i == curr_reward
 
 
-def calc_dilq_reward(i, neighbors, Q, R, s0, n_a):
+def _calc_dilq_reward(i, neighbors, Q, R, s0, n_a):
     r = 0.
 
     # self

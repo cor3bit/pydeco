@@ -7,7 +7,6 @@ def run():
     # params
     n_vehicles = 5
 
-
     vp = VehiclePlatoon(n_vehicles)
 
 

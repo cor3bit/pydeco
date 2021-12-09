@@ -7,7 +7,6 @@ import numpy as np
 from pydeco.types import *
 from pydeco.constants import PolicyType, TrainMethod, NoiseShape
 from pydeco.problem.lq import LQ
-from pydeco.problem.centralized_lq import CeLQ
 from pydeco.controller.agent import Agent
 
 
@@ -56,6 +55,7 @@ class LQR(Agent):
             self,
             state: Tensor,
             policy_type: PolicyType = PolicyType.GREEDY,
+            **kwargs
     ) -> Tensor:
         if policy_type == PolicyType.GREEDY:
             return self._K @ state
@@ -70,7 +70,7 @@ class LQR(Agent):
 
     def train(
             self,
-            env: LQ | CeLQ,
+            env: LQ,
             method: str,
             gamma: Scalar = 1.,
             eps: Scalar = 1e-8,
@@ -174,7 +174,7 @@ class LQR(Agent):
 
     def _train_analytical_lqr(
             self,
-            env: LQ | CeLQ,
+            env: LQ,
             gamma: Scalar = 1.,
             eps: Scalar = 1e-8,
             max_iter: int = 100,
@@ -246,7 +246,6 @@ class LQR(Agent):
         H_k = None
 
         beta = 1
-        G_k = np.eye(p) * beta
         theta = np.full((p, 1), fill_value=.0)
 
         pi_improve_iter = 0
@@ -256,6 +255,8 @@ class LQR(Agent):
 
             pi_eval_iter = 0
             pi_eval_converged = False
+
+            G_k = np.eye(p) * beta
 
             while not pi_eval_converged and pi_eval_iter < max_policy_evals:
                 # a
@@ -313,7 +314,7 @@ class LQR(Agent):
 
     def _train_qlearn_lqr(
             self,
-            env: LQ | CeLQ,
+            env: LQ,
             initial_state: Tensor,
             initial_policy: Tensor,
             gamma: Scalar = 1.,

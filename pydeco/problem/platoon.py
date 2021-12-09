@@ -1,10 +1,21 @@
 import numpy as np
 
-from pydeco.problem.env import DistributedEnv
+from pydeco.problem.env import Env
 from pydeco.types import *
 
 
-class VehiclePlatoon(DistributedEnv):
+class VehiclePlatoon(Env):
+    def reset(self, initial_state: Tensor, **kwargs) -> Tensor:
+        pass
+
+    def _transition_fn(self, action: Tensor, **kwargs) -> Tensor:
+        pass
+
+    def _reward_fn(self, action: Tensor, **kwargs) -> Scalar:
+        pass
+
+
+class DecoupledVehiclePlatoon():
     def __init__(
             self,
 
