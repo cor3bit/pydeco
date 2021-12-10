@@ -414,6 +414,7 @@ class LQR(Agent):
         # y_ind = np.triu_indices(y.shape[0])
         # y_ = y[y_ind].reshape((-1, 1))
         # tf_1 = perf_counter()-t1
+        # print(tf_1)
 
         # t2 = perf_counter()
         x = np.empty((p, 1))
@@ -424,6 +425,7 @@ class LQR(Agent):
                 c += 1
 
         # tf_2 = perf_counter()-t2
+        # print(tf_2)
 
         return x
 

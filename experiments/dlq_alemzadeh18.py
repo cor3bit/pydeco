@@ -1,4 +1,5 @@
 import numpy as np
+from tqdm import tqdm
 
 from pydeco.constants import *
 from pydeco.problem.distributed_lq import DiLQ, create_distributed_envs
@@ -12,15 +13,22 @@ def run_experiment():
     A, B, Q, R = problem_setup()
 
     # communication topology
-    n_agents = 6
+    # n_agents = 6
+    # communication_map = {
+    #     0: [1, ],
+    #     1: [0, 2],
+    #     2: [1, 3],
+    #     3: [2, 4],
+    #     4: [3, 5],
+    #     5: [4, ],
+    # }
+
+    n_agents = 2
     communication_map = {
         0: [1, ],
-        1: [0, 2],
-        2: [1, 3],
-        3: [2, 4],
-        4: [3, 5],
-        5: [4, ],
+        1: [0, ],
     }
+
     coupled_dynamics = False
     coupled_rewards = True
 
@@ -42,14 +50,16 @@ def run_experiment():
         agent.initialize_qlearn_ls(env.n_s, env.n_a)
 
     # training params
-    max_policy_improves = 20
-    max_policy_evals = 200
+    max_policy_improves = 30
+    max_policy_evals = 10
     gamma = 1.
 
     all_converged = False
     iter = 0
 
     # policy improvement loop
+    pbar = tqdm(total=max_policy_improves*max_policy_evals)
+
     while not all_converged and iter < max_policy_improves:
         # reset covar
         for agent in agents:
@@ -67,6 +77,8 @@ def run_experiment():
                 i: next_state for i, next_state in enumerate(next_states)
             }
 
+            pbar.update(1)
+
         # policy improvement step
         all_converged = True
         for agent, env in zip(agents, envs):
@@ -76,7 +88,9 @@ def run_experiment():
         # update iteration
         iter += 1
 
-    bb = 11
+    pbar.close()
+
+    print(agent.K)
 
 
 def problem_setup():
