@@ -44,9 +44,9 @@ class DiLQ(LQ):
         self._neighbors = neighborhood_agents
         self._n_neighbors = len(neighborhood_agents)
 
-        sa_n_s, sa_n_a = control_matrix.shape
-        self._sa_n_s = sa_n_s
-        self._sa_n_a = sa_n_a
+        # sa_n_s, sa_n_a = control_matrix.shape
+        # self._sa_n_s = sa_n_s
+        # self._sa_n_a = sa_n_a
 
         # dynamics
         n_agents = 1 + self._n_neighbors
@@ -57,16 +57,16 @@ class DiLQ(LQ):
         if coupled_dynamics:
             raise NotImplementedError
         else:
-            # A = system_matrix
-            # B = control_matrix
-            A = np.kron(I_n, system_matrix)
-            B = np.kron(S_n, control_matrix)
+            A = system_matrix
+            B = control_matrix
+            # A = np.kron(I_n, system_matrix)
+            # B = np.kron(S_n, control_matrix)
 
         # rewards
         if coupled_rewards:
             Q = self._construct_coupled_Q(state_reward_matrix)
-            # R = action_reward_matrix
-            R = np.kron(S_n, action_reward_matrix)
+            R = action_reward_matrix
+            # R = np.kron(S_n, action_reward_matrix)
         else:
             raise NotImplementedError
             # Q = state_reward_matrix
@@ -82,33 +82,32 @@ class DiLQ(LQ):
     def neighbors(self):
         return self._neighbors
 
-    def step(
-            self,
-            action: Tensor,
-            information: Tensors = None,
-            **kwargs
-    ) -> Tuple[Scalar, Tensor]:
-        # get current reward
-        curr_reward = self._reward_fn(action, information=information, **kwargs)
+    # def step(
+    #         self,
+    #         action: Tensor,
+    #         information: Tensors = None,
+    #         **kwargs
+    # ) -> Tuple[Scalar, Tensor]:
+    #     # get current reward
+    #     curr_reward = self._reward_fn(action, information=information, **kwargs)
+    #
+    #     # transition to next state
+    #     next_state = self._transition_fn(action, information=information, **kwargs)
+    #
+    #     # update internal state
+    #     self._state = next_state[:self._sa_n_s]
+    #
+    #     # return resulting state & reward
+    #     return curr_reward, next_state
 
-        # transition to next state
-        next_state = self._transition_fn(action, information=information, **kwargs)
-
-        # update internal state
-        self._state = next_state[:self._sa_n_s]
-
-        # return resulting state & reward
-        return curr_reward, next_state
-
-
-    def _transition_fn(
-            self,
-            action: Tensor,
-            information: Tensors = None,
-            **kwargs
-    ) -> Tensor:
-        state_info = np.concatenate((self.get_state(), *information))
-        return self._A @ state_info + self._B @ action
+    # def _transition_fn(
+    #         self,
+    #         action: Tensor,
+    #         information: Tensors = None,
+    #         **kwargs
+    # ) -> Tensor:
+    #     state_info = np.concatenate((self.get_state(), *information))
+    #     return self._A @ state_info + self._B @ action
 
     def _reward_fn(
             self,

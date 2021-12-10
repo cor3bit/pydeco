@@ -2,7 +2,9 @@ import numpy as np
 from tqdm import tqdm
 
 from pydeco.constants import *
+from pydeco.problem.centralized_lq import CeLQ
 from pydeco.problem.distributed_lq import DiLQ, create_distributed_envs
+from pydeco.controller.lqr import LQR
 from pydeco.controller.dlqr import DiLQR
 
 
@@ -23,21 +25,55 @@ def run_experiment():
     #     5: [4, ],
     # }
 
-    n_agents = 2
+    # n_agents = 2
+    # communication_map = {
+    #     0: [1, ],
+    #     1: [0, ],
+    # }
+
+    n_agents = 3
     communication_map = {
         0: [1, ],
-        1: [0, ],
+        1: [0, 2, ],
+        2: [1, ],
     }
+
+    communication_links = []
+    for k, v in communication_map.items():
+        for ng in v:
+            communication_links.append((k, ng))
+
+    double_count_rewards = False
 
     coupled_dynamics = False
     coupled_rewards = True
 
+    # solve CENTRALIZED
+    # Q-learning
+    print('\nCeLQ:')
+
+    lq = CeLQ(n_agents, communication_links, double_count_rewards, A, B, Q, R)
+
+    print('\nRiccati LQR:')
+    s0_0 = np.array([1, 0, 0, 0, 0])
+    s0_1 = np.array([2, 0, 0, 0, 0])
+    s0_2 = np.array([3, 0, 0, 0, 0])
+    s0 = np.concatenate((s0_0, s0_1, s0_2))
+    lqr = LQR()
+    lqr.train(lq, method=TrainMethod.ANALYTICAL, initial_state=s0)
+    P_star = lqr.P
+    K_star = lqr.K
+    # print(f'P: {P_star}')
+    print(f'K: {K_star}')
+
+    # solve DISTRIBUTED
+
     # create envs
-    envs = create_distributed_envs(n_agents, communication_map, coupled_dynamics,
-                                   coupled_rewards, A, B, Q, R)
+    envs = create_distributed_envs(
+        n_agents, communication_map, coupled_dynamics, coupled_rewards, A, B, Q, R)
 
     # initial state
-    initial_states = [np.zeros((n_s, 1)) for env in envs]
+    initial_states = [s0_0, s0_1, s0_2]
 
     curr_states = {
         i: env.reset(initial_state) for i, (env, initial_state) in enumerate(zip(envs, initial_states))
@@ -50,15 +86,15 @@ def run_experiment():
         agent.initialize_qlearn_ls(env.n_s, env.n_a)
 
     # training params
-    max_policy_improves = 30
-    max_policy_evals = 10
+    max_policy_improves = 20
+    max_policy_evals = 50
     gamma = 1.
 
     all_converged = False
     iter = 0
 
     # policy improvement loop
-    pbar = tqdm(total=max_policy_improves*max_policy_evals)
+    pbar = tqdm(total=max_policy_improves * max_policy_evals)
 
     while not all_converged and iter < max_policy_improves:
         # reset covar

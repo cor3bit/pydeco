@@ -11,19 +11,19 @@ from pydeco.controller.lqr import LQR
 
 
 class DiLQR(LQR):
-    def act(
-            self,
-            state: Tensor,
-            information: Tensors = None,
-            policy_type: PolicyType = PolicyType.GREEDY,
-            **kwargs
-    ) -> Tensor:
-        if information is not None:
-            state_with_info = np.concatenate([state, *information])
-        else:
-            state_with_info = state
-
-        return super().act(state_with_info, policy_type, **kwargs)
+    # def act(
+    #         self,
+    #         state: Tensor,
+    #         information: Tensors = None,
+    #         policy_type: PolicyType = PolicyType.GREEDY,
+    #         **kwargs
+    # ) -> Tensor:
+    #     if information is not None:
+    #         state_with_info = np.concatenate([state, *information])
+    #     else:
+    #         state_with_info = state
+    #
+    #     return super().act(state_with_info, policy_type, **kwargs)
 
     def initialize_qlearn_ls(
             self,
@@ -39,7 +39,7 @@ class DiLQR(LQR):
 
         self._noise_params = (np.zeros((n_a,)), np.eye(n_a), (1000,))
 
-        self.K = np.full((n_a, n_s), fill_value=-.1)
+        self.K = np.full((n_a, n_s), fill_value=-.01)
 
         self._theta = np.full((p, 1), fill_value=.0)
 
@@ -64,19 +64,19 @@ class DiLQR(LQR):
         for j in env.neighbors:
             curr_infos.append(curr_states[j])
 
-        curr_state_info = np.concatenate((curr_state, *curr_infos))
+        # curr_state_info = np.concatenate((curr_state, *curr_infos))
 
         # a
-        curr_action = self.act(curr_state, information=curr_infos, policy_type=PolicyType.EPS_GREEDY)
+        curr_action = self.act(curr_state, policy_type=PolicyType.EPS_GREEDY)
 
-        # r, (s', z')
+        # r, s'
         curr_reward, next_state = env.step(curr_action, information=curr_infos)
 
         # max_a'
         next_action = self.act(next_state, policy_type=PolicyType.GREEDY)
 
         # features from (s,a)
-        f_x = self._build_feature_vector(curr_state_info, curr_action, self._p)
+        f_x = self._build_feature_vector(curr_state, curr_action, self._p)
         f_x_next = self._build_feature_vector(next_state, next_action, self._p)
 
         # update params theta w/ RLS
@@ -94,7 +94,8 @@ class DiLQR(LQR):
         # update state
         # TODO part of next state
         # curr_states[agent_id] = next_state[:env._sa_n_s]
-        return next_state[:env._sa_n_s]
+        # return next_state[:env._sa_n_s]
+        return next_state
 
         # update counter
         # pi_eval_iter += 1
