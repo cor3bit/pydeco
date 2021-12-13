@@ -7,7 +7,7 @@ def run():
     # params
     n_vehicles = 5
 
-    vp = VehiclePlatoon(n_vehicles)
+    # vp = VehiclePlatoon(n_vehicles)
 
 
 if __name__ == '__main__':

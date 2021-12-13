@@ -30,3 +30,8 @@ class Agent(ABC):
             n_steps: int,
     ) -> Tuple[Tensor, Tensor, float]:
         raise NotImplementedError
+
+
+class MultiAgent(ABC):
+    pass
+

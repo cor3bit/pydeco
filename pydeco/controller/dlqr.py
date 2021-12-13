@@ -8,9 +8,22 @@ from pydeco.types import *
 from pydeco.constants import PolicyType, TrainMethod, NoiseShape
 from pydeco.problem.distributed_lq import DiLQ
 from pydeco.controller.lqr import LQR
+from pydeco.controller.agent import MultiAgent
 
 
-class DiLQR(LQR):
+
+class MultiAgentLQR(MultiAgent):
+    pass
+
+
+class LocalLQR(LQR):
+    def __init__(
+            self,
+            noise_type: str = NoiseShape.MV_NORMAL,
+            verbose: bool = True,
+    ):
+        super().__init__('DiLQR', noise_type, verbose)
+
     # def act(
     #         self,
     #         state: Tensor,
@@ -39,7 +52,12 @@ class DiLQR(LQR):
 
         self._noise_params = (np.zeros((n_a,)), np.eye(n_a), (1000,))
 
-        self.K = np.full((n_a, n_s), fill_value=-.01)
+        # self.K = np.full((n_a, n_s), fill_value=-.01)
+        self.K = np.array(
+            [[0., 0.06966258, -0.00066418, -0.03478692, 0.29336068, ],
+             [0., 0.05054217, 0.08991914, -0.08479701, 0.00070446, ],
+             [0., 0.20414527, 0.00281244, -0.60267623, 0.16335665, ], ]
+        )
 
         self._theta = np.full((p, 1), fill_value=.0)
 

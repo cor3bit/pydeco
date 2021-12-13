@@ -43,3 +43,21 @@ class Env(ABC):
             **kwargs
     ) -> Scalar:
         raise NotImplementedError
+
+
+class MultiAgentEnv(ABC):
+    _envs = None
+
+    def reset(
+            self,
+            initial_states: Tensors,
+            **kwargs
+    ) -> Tensors:
+        raise NotImplementedError
+
+    def step(
+            self,
+            actions: Tensors,
+            **kwargs
+    ) -> Sequence[Tuple[Scalar, Tensor]]:
+        raise NotImplementedError

@@ -17,7 +17,7 @@ def run_experiment():
     lq = LQ(A, B, Q, R)
 
     # sim params
-    x0 = np.ones(shape=(n_s,))
+    x0 = np.zeros(shape=(n_s,))
 
     # Closed-form
     print('\nRiccati LQR:')

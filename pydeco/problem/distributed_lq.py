@@ -1,6 +1,7 @@
 import numpy as np
 
 from pydeco.problem.lq import LQ
+from pydeco.problem.env import MultiAgentEnv
 from pydeco.types import *
 
 
@@ -19,6 +20,11 @@ def create_distributed_envs(
     return [DiLQ(i, communication_map[i], coupled_dynamics, coupled_rewards,
                  system_matrix, control_matrix, state_reward_matrix, action_reward_matrix,
                  ) for i in range(n_agents)]
+
+
+class MultiAgentLQ(MultiAgentEnv):
+    def __init__(self):
+        pass
 
 
 class DiLQ(LQ):

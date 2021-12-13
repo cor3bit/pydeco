@@ -13,13 +13,12 @@ from pydeco.controller.agent import Agent
 class LQR(Agent):
     def __init__(
             self,
+            name: str = 'LQR',
             noise_type: str = NoiseShape.MV_NORMAL,
             verbose: bool = True,
     ):
         # logger
-        self._logger = logging.getLogger(f'LQR')
-        self._logger.setLevel(logging.INFO if verbose else logging.WARNING)
-        self._logger.info(f'Initializing LQR controller.')
+        self._configure_logger(name, verbose)
 
         # cache for visualization and logging
         self._cache = {}
@@ -126,7 +125,7 @@ class LQR(Agent):
     def simulate_trajectory(
             self,
             env: LQ,
-            x0: Tensor,
+            initial_state: Tensor,
             t0: float,
             tn: float,
             n_steps: int,
@@ -138,10 +137,10 @@ class LQR(Agent):
         self._logger.info(f'Simulating a trajectory.')
 
         # starting x0
-        env.reset(x0)
+        env.reset(initial_state)
 
         # clear previous results
-        self._cache.clear()
+        # self._cache.clear()
 
         # calculate optimal controls
         time_grid = np.linspace(t0, tn, num=n_steps + 1)
@@ -167,17 +166,86 @@ class LQR(Agent):
         rf = env.terminal_cost(x_k)
         total_cost += rf
 
-        xs = np.stack(xs)
-        us = np.stack(us)
+        xs = np.squeeze(np.stack(xs))
+        us = np.squeeze(np.stack(us))
 
         return xs, us, total_cost
+
+    def _configure_logger(
+            self,
+            name: str,
+            verbose: bool,
+    ):
+        self._logger = logging.getLogger(name)
+
+        if self._logger.hasHandlers():
+            self._logger.handlers.clear()
+
+        handler = logging.StreamHandler()
+        # formatter = logging.Formatter('%(levelname)s:%(name)s:%(message)s')
+        formatter = logging.Formatter('%(message)s')
+        handler.setFormatter(formatter)
+        self._logger.addHandler(handler)
+        self._logger.setLevel(logging.INFO if verbose else logging.WARNING)
+        self._logger.info(f'Initializing {name} controller.')
+
+    def _save_param(
+            self,
+            k: int,
+            name: str,
+            value: Union[float, int, str, Tensor],
+    ):
+        if k not in self._cache:
+            self._cache[k] = {}
+
+        if name in self._cache[k]:
+            self._logger.error(f'{name} has already been cached for time step {k}!')
+
+        self._cache[k][name] = value
+
+    def _log_header(self):
+        i = 'iter'
+        loss = 'loss'
+        kkt = 'kkt_viol'
+        alpha = 'alpha'
+        bt_n = 'bt_N'
+        sigma = 'sigma'
+
+        msg = f"|{i:<5}|{loss:<10}|{kkt:<10}|{alpha:<10}|{bt_n:<5}|{'infs':<5}|{sigma:<8}|"
+        msg2 = f"{'d_min':<8}|{'d_max':<8}|{'kkt_eq':<9}|{'kkt_ineq':<9}|{'kkt_lgr':<9}|"
+
+        self._logger.info(msg + msg2)
+
+    def _log_step(
+            self,
+            k: int,
+    ):
+        sc = self._cache[k]
+        loss = sc['loss']
+        kkt = sc['penalty']
+        alpha = sc['alpha']
+        bt_n = sc['bt_n']
+        sigma = sc['sigma']
+
+        d_min = sc['min_d']
+        d_max = sc['max_d']
+        max_c_eq = sc['max_c_eq']
+        max_c_ineq = sc['max_c_ineq']
+        max_grad_lgr = sc['max_grad_Lagrangian']
+
+        is_infs = 'Y' if sc['is_infeasible'] else 'N'
+
+        msg1 = f'|{k:<5}|{loss:<10.4f}|{kkt:<10.4f}|{alpha:<10.6f}|{bt_n:<5}|{is_infs:<5}|{sigma:<8.4f}|'
+        msg2 = f'{d_min:<8.2f}|{d_max:<8.2f}|{max_c_eq:<9.4f}|{max_c_ineq:<9.4f}|{max_grad_lgr:<9.4f}|'
+
+        self._logger.info(msg1 + msg2)
 
     def _train_analytical_lqr(
             self,
             env: LQ,
-            gamma: Scalar = 1.,
-            eps: Scalar = 1e-8,
-            max_iter: int = 100,
+            gamma: Scalar,
+            eps: Scalar,
+            max_iter,
             **kwargs
     ):
         # analytical solution requires access to the LQ model
