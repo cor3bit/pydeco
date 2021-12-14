@@ -9,7 +9,7 @@ def plot_evolution(xs: Tensor, ts: Tensor, indx: Sequence[int], name: str):
     # chart data
     for ind in indx:
         x = xs[:, ind]
-        sns.lineplot(x=ts, y=x, label='$x_1$')
+        sns.lineplot(x=ts, y=x, label=f'$x_{1}$')
 
     # chart plotting
     # plt.title(f'{scheme}')

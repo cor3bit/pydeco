@@ -33,5 +33,5 @@ class Agent(ABC):
 
 
 class MultiAgent(ABC):
-    pass
+    _cache = None
 

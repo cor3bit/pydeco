@@ -156,7 +156,7 @@ class LQR(Agent):
 
             # update state
             r_k, next_x_k = env.step(u_k)
-            xs.append(x_k)
+            xs.append(next_x_k)
 
             # increment stage cost
             total_cost += r_k

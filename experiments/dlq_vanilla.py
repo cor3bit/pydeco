@@ -15,34 +15,12 @@ def run_experiment():
     # identical systems
     A, B, Q, R = problem_setup()
 
-    # communication topology
-    # n_agents = 6
-    # communication_map = {
-    #     0: [1, ],
-    #     1: [0, 2],
-    #     2: [1, 3],
-    #     3: [2, 4],
-    #     4: [3, 5],
-    #     5: [4, ],
-    # }
-
-    # n_agents = 2
-    # communication_map = {
-    #     0: [1, ],
-    #     1: [0, ],
-    # }
-
     n_agents = 3
     communication_map = {
         0: [1, ],
         1: [0, 2, ],
         2: [1, ],
     }
-
-    # n_agents = 1
-    # communication_map = {
-    #     0: [],
-    # }
 
     communication_links = [(agent_id, ng) for agent_id, ngs in communication_map.items() for ng in ngs]
 
@@ -52,9 +30,9 @@ def run_experiment():
     coupled_rewards = True
 
     # training params
-    s0_0 = np.array([0.1, 0.1, 0, 0, 0.1])
-    s0_1 = np.array([0.2, 0.1, 0, 0, 0.1])
-    s0_2 = np.array([0.5, 0.1, 0, 0, 0.1])
+    s0_0 = np.array([0.1])
+    s0_1 = np.array([0.2])
+    s0_2 = np.array([0.5])
     s0 = np.concatenate((s0_0, s0_1, s0_2))
 
     # -------------- solve CENTRALIZED --------------
@@ -75,10 +53,10 @@ def run_experiment():
     print(f'K: {K_star}')
 
     # plotting
-    n_steps = 20
+    n_steps = 5
     ts = np.linspace(0, 1, num=n_steps + 1)
     xs_star, us_star, tcost = lqr.simulate_trajectory(lq, s0, 0, 1, n_steps=n_steps)
-    plot_evolution(xs_star, ts, [0, 5, 10], 'TEST')
+    plot_evolution(xs_star, ts, [0, 1, 2], 'TEST')
 
     # -------------- solve DISTRIBUTED --------------
     ma_env = MultiAgentLQ(
@@ -90,17 +68,10 @@ def run_experiment():
     initial_states = [s0_0, s0_1, s0_2]
     gamma = 1.0
     eps = 1e-3
-    max_policy_evals = 35
-    max_policy_improves = 300
+    max_policy_evals = 30
+    max_policy_improves = 15
 
-    # TODO try other initial policies
-    sa_k_star = np.array(
-        [[0., 0.06966258, -0.00066418, -0.03478692, 0.29336068, ],
-         [0., 0.05054217, 0.08991914, -0.08479701, 0.00070446, ],
-         [0., 0.20414527, 0.00281244, -0.60267623, 0.16335665, ], ]
-    )
-
-    # sa_k_star = np.full((3, 5), fill_value=-.01)
+    sa_k_star = np.full((1, 1), fill_value=1.)
 
     # initial_policies = [sa_k_star, sa_k_star, sa_k_star]
 
@@ -114,38 +85,22 @@ def run_experiment():
         sa_k_star,
     )
 
+    for agent in ma_lqr._agent_map.values():
+        print(agent.K)
+
     # plotting
-    xs_star, us_star, tcost = ma_lqr.simulate_trajectory(
+    xs_sim, us_sim, tcost_sim = ma_lqr.simulate_trajectory(
         ma_env, initial_states, 0, 1, n_steps=n_steps,
     )
-    plot_evolution(xs_star, ts, [0, 5, 10], 'TEST')
+    plot_evolution(xs_sim, ts, [0, 1, 2], 'TEST')
 
 
 def problem_setup():
-    # UAV example
-    n_s = 5
-    n_a = 3
+    n_s = 1
+    n_a = 1
 
-    A = np.array(
-        [
-            [0.0000, 0.0000, 1.1320, 0.0000, -1.000],
-            [0.0000, -0.0538, -0.1712, 0.0000, 0.0705],
-            [0.0000, 0.0000, 0.0000, 1.0000, 0.0000],
-            [0.0000, 0.0485, 0.0000, -0.8556, -1.013],
-            [0.0000, -0.2909, 0.0000, 1.0532, -0.6859],
-        ]
-    )
-
-    B = np.array(
-        [
-            [0.0000, 0.0000, 0.0000],
-            [-0.120, 1.0000, 0.0000],
-            [0.0000, 0.0000, 0.0000],
-            [4.4190, 0.0000, -1.665],
-            [1.5750, 0.0000, -0.0732],
-        ]
-    )
-
+    A = np.array([[0.2]])
+    B = np.array([[0.1]])
     Q = -np.eye(n_s)
     R = -np.eye(n_a)
 

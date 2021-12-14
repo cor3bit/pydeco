@@ -16,8 +16,15 @@ class MultiAgentLQR(MultiAgent):
     def __init__(
             self,
             n_agents: int,
+            verbose: bool = True,
     ):
         self._agent_map = {i: LocalLQR() for i in range(n_agents)}
+
+        # logging
+        self._configure_logger('MAQL-RLS', verbose)
+
+        # caching
+        self._cache = {}
 
     def train(
             self,
@@ -41,9 +48,11 @@ class MultiAgentLQR(MultiAgent):
         all_converged = False
         iter = 0
 
-        pbar = tqdm(total=max_policy_improves * max_policy_evals)
+        self._log_header()
+
+        # pbar = tqdm(total=max_policy_improves * max_policy_evals)
         while not all_converged and iter < max_policy_improves:
-            # TODO REMOVE initialize
+            # TODO REMOVE re-initialize
             ma_env.reset(initial_states)
 
             # reset covar at the beginning of a new policy eval loop
@@ -101,29 +110,135 @@ class MultiAgentLQR(MultiAgent):
                 ma_env.roll_states()
 
                 # update progress
-                pbar.update(1)
+                # pbar.update(1)
 
             # policy improvement step
             all_converged = True
-            # TODO check improve dimensions
-            for agent in self._agent_map.values():
-                converged = agent.improve_policy(eps)
+            for agent_id, agent in self._agent_map.items():
+                converged, diff = agent.improve_policy(eps)
                 all_converged &= converged
+
+                self._save_param(agent_id, iter, 'max_diff', diff)
+                self._log_step(agent_id, iter)
 
             # update iteration
             iter += 1
 
-        pbar.close()
+        # pbar.close()
 
     def simulate_trajectory(
             self,
-            env: MultiAgentLQ,
+            ma_env: MultiAgentLQ,
             initial_states: Tensors,
             t0: float,
             tn: float,
             n_steps: int,
     ) -> Tuple[Tensor, Tensor, float]:
-        pass
+        # self._logger.info(f'Simulating a trajectory.')
+        ma_env.reset(initial_states)
+
+        time_grid = np.linspace(t0, tn, num=n_steps + 1)
+
+        xs = []
+        us = []
+        total_cost = .0
+
+        for k in time_grid[:-1]:
+
+            step_xs = []
+            step_us = []
+
+            for local_env, (agent_id, agent) in zip(ma_env._env_map.values(), self._agent_map.items()):
+                curr_state = ma_env.get_state(agent_id)
+                curr_info = ma_env.get_info(agent_id)
+                curr_action = agent.act(curr_state, information=curr_info, policy_type=PolicyType.GREEDY)
+
+                step_xs.append(curr_state)
+                step_us.append(curr_action)
+
+                # r, s'
+                curr_reward, next_state = local_env.step(curr_action, information=curr_info)
+                ma_env.set_next_state(agent_id, next_state)
+
+                total_cost += curr_reward
+
+            ma_env.roll_states()
+
+            xs.append(np.concatenate(step_xs))
+            us.append(np.concatenate(step_us))
+
+        # last step
+        step_xs = []
+        for agent_id, agent in self._agent_map.items():
+            curr_state = ma_env.get_state(agent_id)
+            step_xs.append(curr_state)
+
+        xs.append(np.concatenate(step_xs))
+
+        # TODO include terminal cost
+
+        xs = np.squeeze(np.stack(xs))
+        us = np.squeeze(np.stack(us))
+
+        return xs, us, total_cost
+
+    def _configure_logger(
+            self,
+            name: str,
+            verbose: bool,
+    ):
+        self._logger = logging.getLogger(name)
+
+        if self._logger.hasHandlers():
+            self._logger.handlers.clear()
+
+        handler = logging.StreamHandler()
+        # formatter = logging.Formatter('%(levelname)s:%(name)s:%(message)s')
+        formatter = logging.Formatter('%(message)s')
+        handler.setFormatter(formatter)
+        self._logger.addHandler(handler)
+        self._logger.setLevel(logging.INFO if verbose else logging.WARNING)
+        self._logger.info(f'Initializing {name} controller.')
+
+    def _save_param(
+            self,
+            agent_id: int | str,
+            iter: int,
+            name: str,
+            value: Union[float, int, str, Tensor],
+    ):
+        key = (agent_id, iter)
+
+        if key not in self._cache:
+            self._cache[key] = {}
+
+        if name in self._cache[key]:
+            self._logger.error(f'{name} has already been cached for time step {key}!')
+
+        self._cache[key][name] = value
+
+    def _log_header(self):
+        ai = 'agent'
+        i = 'iter'
+        max_diff = 'max_diff'
+
+        msg = f"|{ai:<7}|{i:<7}|{max_diff:<12}|"
+
+        self._logger.info(msg)
+
+    def _log_step(
+            self,
+            agent_id: int | str,
+            iter: int,
+    ):
+        key = (agent_id, iter)
+        sc = self._cache[key]
+
+        max_diff = sc['max_diff']
+
+        msg1 = f'|{agent_id:<7}|{iter:<7}|{max_diff:<12.4f}|'
+
+        self._logger.info(msg1)
 
 
 class LocalLQR(LQR):
@@ -189,10 +304,10 @@ class LocalLQR(LQR):
         # TODO consider stop at |P_new - P|
         diff = np.max(np.abs(K_new - self._K))
 
-        print(diff)
+        # print(diff)
 
         converged = diff < eps
 
         self._K = K_new
 
-        return converged
+        return converged, diff
