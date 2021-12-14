@@ -46,7 +46,7 @@ class Env(ABC):
 
 
 class MultiAgentEnv(ABC):
-    _envs = None
+    _env_map = None
 
     def reset(
             self,
@@ -57,7 +57,14 @@ class MultiAgentEnv(ABC):
 
     def step(
             self,
-            actions: Tensors,
+            agent_id: int,
+            action: Tensor,
             **kwargs
     ) -> Sequence[Tuple[Scalar, Tensor]]:
+        raise NotImplementedError
+
+    def get_state(self, agent_id: int):
+        raise NotImplementedError
+
+    def get_info(self, agent_id: int):
         raise NotImplementedError

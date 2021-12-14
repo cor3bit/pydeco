@@ -5,16 +5,14 @@ import seaborn as sns
 
 from pydeco.constants import *
 from pydeco.problem.centralized_lq import CeLQ
-from pydeco.problem.distributed_lq import DiLQ, create_distributed_envs
+from pydeco.problem.distributed_lq import LocalLQ, MultiAgentLQ
 from pydeco.controller.lqr import LQR
-from pydeco.controller.dlqr import LocalLQR
+from pydeco.controller.dlqr import LocalLQR, MultiAgentLQR
 from pydeco.viz.plot2d import plot_evolution
 
 
 def run_experiment():
     # identical systems
-    n_s = 5
-    n_a = 3
     A, B, Q, R = problem_setup()
 
     # communication topology
@@ -46,144 +44,80 @@ def run_experiment():
     #     0: [],
     # }
 
-    communication_links = []
-    for k, v in communication_map.items():
-        for ng in v:
-            communication_links.append((k, ng))
+    communication_links = [(agent_id, ng) for agent_id, ngs in communication_map.items() for ng in ngs]
 
     double_count_rewards = False
 
     coupled_dynamics = False
     coupled_rewards = True
 
-    # solve CENTRALIZED
-    # Q-learning
-    print('\nCeLQ:')
-
-    lq = CeLQ(n_agents, communication_links, double_count_rewards, A, B, Q, R)
-
-    print('\nRiccati LQR:')
+    # training params
     s0_0 = np.array([0.1, 5, 0, 0, 5])
     s0_1 = np.array([0.2, 1, 0, 0, 1])
     s0_2 = np.array([0.5, 1, 0, 0, 1])
     s0 = np.concatenate((s0_0, s0_1, s0_2))
+
+    # -------------- solve CENTRALIZED --------------
+    print('\nCeLQ:')
+
+    lq = CeLQ(n_agents, communication_links, double_count_rewards, A, B, Q, R)
+
     lqr = LQR()
-    lqr.train(lq, method=TrainMethod.ANALYTICAL, initial_state=s0)
-    P_star = lqr.P
+
+    lqr.train(
+        lq,
+        method=TrainMethod.ANALYTICAL,
+        initial_state=s0,
+    )
+    # P_star = lqr.P
     K_star = lqr.K
     # print(f'P: {P_star}')
     print(f'K: {K_star}')
 
+    # plotting
     xs_star, us_star, tcost = lqr.simulate_trajectory(lq, s0, 0, 1, n_steps=10)
     ts = np.linspace(0, 1, num=10 + 1)
     plot_evolution(xs_star, ts, [0, 5, 10], 'TEST')
 
-
-
-    # solve DISTRIBUTED
-
-    # create envs
-    envs = create_distributed_envs(
+    # -------------- solve DISTRIBUTED --------------
+    ma_env = MultiAgentLQ(
         n_agents, communication_map, coupled_dynamics, coupled_rewards, A, B, Q, R)
 
-    # initial state
-    initial_states = [s0_0, s0_1, s0_2]
-    # initial_states = [np.zeros((n_s, 1))]
-
-    curr_states = {
-        i: env.reset(initial_state) for i, (env, initial_state) in enumerate(zip(envs, initial_states))
-    }
-
-    agents = [LocalLQR() for _ in range(n_agents)]
-
-    # initialize
-    for env, agent in zip(envs, agents):
-        agent.initialize_qlearn_ls(env.n_s, env.n_a)
+    ma_lqr = MultiAgentLQR(n_agents)
 
     # training params
-    max_policy_improves = 10
-    max_policy_evals = 400
-    gamma = 1.
+    initial_states = [s0_0, s0_1, s0_2]
+    gamma = 1.0
+    eps = 1e-6
+    max_policy_evals = 50
+    max_policy_improves = 20
 
-    all_converged = False
-    iter = 0
+    # TODO try other initial policies
+    sa_k_star = np.array(
+        [[0., 0.06966258, -0.00066418, -0.03478692, 0.29336068, ],
+         [0., 0.05054217, 0.08991914, -0.08479701, 0.00070446, ],
+         [0., 0.20414527, 0.00281244, -0.60267623, 0.16335665, ], ]
+    )
 
-    # policy improvement loop
-    pbar = tqdm(total=max_policy_improves * max_policy_evals)
+    # sa_k_star = np.full((3, 5), fill_value=-.01)
 
-    while not all_converged and iter < max_policy_improves:
-        # reset covar
-        for agent in agents:
-            agent.reset_covar()
+    # initial_policies = [sa_k_star, sa_k_star, sa_k_star]
 
-        # policy evaluation loop
-        for _ in range(max_policy_evals):
+    ma_lqr.train(
+        ma_env,
+        gamma,
+        eps,
+        max_policy_evals,
+        max_policy_improves,
+        initial_states,
+        sa_k_star,
+    )
 
-            next_states = []
-            for agent_id, (agent, env) in enumerate(zip(agents, envs)):
-                next_state = agent.eval_policy(env, agent_id, curr_states, gamma)
-                next_states.append(next_state)
-
-            curr_states = {
-                i: next_state for i, next_state in enumerate(next_states)
-            }
-
-            pbar.update(1)
-
-        # policy improvement step
-        all_converged = True
-        for agent, env in zip(agents, envs):
-            converged = agent.improve_policy()
-            all_converged &= converged
-
-        # update iteration
-        iter += 1
-
-    pbar.close()
-
-    # PLOTTING
-    xs_star, us_star, tcost = simulate_dilq_trajectories(envs, agents, initial_states, 0, 1, n_steps=10)
-    plot_evolution(xs_star, ts, [0, 5, 10], 'TEST')
-
-
-def simulate_dilq_trajectories(envs, agents, initial_states, t0, tn, n_steps):
-
-    curr_states = {
-        i: env.reset(initial_state) for i, (env, initial_state) in enumerate(zip(envs, initial_states))
-    }
-
-    # calculate optimal controls
-    time_grid = np.linspace(t0, tn, num=n_steps + 1)
-    x_k = env.get_state()
-    xs = [x_k]
-    us = []
-
-    for env, agent in zip(envs, agents):
-
-        total_cost = .0
-        for k in time_grid[:-1]:
-            # optimal control at k
-            u_k = agent.act(x_k)
-            us.append(u_k)
-
-            # update state
-            r_k, next_x_k = env.step(u_k)
-            xs.append(x_k)
-
-            # increment stage cost
-            total_cost += r_k
-
-            # update state
-            x_k = next_x_k
-
-        rf = env.terminal_cost(x_k)
-        total_cost += rf
-
-        xs = np.squeeze(np.stack(xs))
-        us = np.squeeze(np.stack(us))
-
-    return xs, us, total_cost
-
+    # plotting
+    # xs_star, us_star, tcost = ma_lqr.simulate_trajectory(
+    #     ma_env, initial_states, 0, 1, n_steps=10,
+    # )
+    # plot_evolution(xs_star, ts, [0, 5, 10], 'TEST')
 
 
 def problem_setup():

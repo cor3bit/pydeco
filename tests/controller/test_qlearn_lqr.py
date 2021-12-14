@@ -67,6 +67,7 @@ def test_fit_qlearn(goerges19):
     gamma = 1.0
     alpha = 0.0008
     max_iter = 12000
+    eps = 1e-8
 
     lqr.train(
         lq,
@@ -76,6 +77,7 @@ def test_fit_qlearn(goerges19):
         initial_policy=K0,
         alpha=alpha,
         max_iter=max_iter,
+        eps=eps,
     )
 
     calc_P, calc_K = lqr.P, lqr.K
@@ -98,7 +100,7 @@ def test_build_feature_vector():
     a = np.array([3])
     p = 6
 
-    x = lqr._build_feature_vector(s, a, p)
+    x = lqr._build_feature_vector(p, s, a)
 
     np.testing.assert_array_almost_equal(
         np.array([[1.], [2.], [3.], [4.], [6.], [9.]]),
@@ -117,7 +119,7 @@ def test_convert_to_parameter_matrix():
     n_q = 3
 
     # value based on quadratic features
-    x = lqr._build_feature_vector(s, a, p)
+    x = lqr._build_feature_vector(p, s, a)
     theta = np.arange(p).reshape((p, 1))
     v2 = x.T @ theta
     v2 = v2.reshape((-1,))[0]

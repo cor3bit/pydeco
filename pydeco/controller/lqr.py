@@ -103,6 +103,7 @@ class LQR(Agent):
                     gamma,
                     alpha=alpha,
                     max_iter=max_iter,
+                    eps=eps,
                 )
             case TrainMethod.QLEARN_LS:
                 P, K = self._train_qlearn_ls_lqr(
@@ -245,7 +246,7 @@ class LQR(Agent):
             env: LQ,
             gamma: Scalar,
             eps: Scalar,
-            max_iter,
+            max_iter: int,
             **kwargs
     ):
         # analytical solution requires access to the LQ model
@@ -290,10 +291,10 @@ class LQR(Agent):
             env: LQ,
             initial_state: Tensor,
             initial_policy: Tensor,
-            gamma: Scalar = 1.,
-            max_policy_evals: int = 80,
-            max_policy_improves: int = 20,
-            eps: Scalar = 1e-3,
+            gamma: Scalar,
+            max_policy_evals: int,
+            max_policy_improves: int,
+            eps: Scalar,
             **kwargs
     ):
         # s
@@ -337,8 +338,8 @@ class LQR(Agent):
                 next_action = self.act(next_state, policy_type=PolicyType.GREEDY)
 
                 # features from (s,a)
-                f_x = self._build_feature_vector(curr_state, curr_action, p)
-                f_x_next = self._build_feature_vector(next_state, next_action, p)
+                f_x = self._build_feature_vector(p, curr_state, curr_action)
+                f_x_next = self._build_feature_vector(p, next_state, next_action)
 
                 # update params theta w/ RLS
                 phi = f_x - gamma * f_x_next
@@ -385,10 +386,10 @@ class LQR(Agent):
             env: LQ,
             initial_state: Tensor,
             initial_policy: Tensor,
-            gamma: Scalar = 1.,
-            alpha: Scalar = 0.005,
-            max_iter: int = 50,
-            eps: Scalar = 1e-8,
+            gamma: Scalar,
+            alpha: Scalar,
+            max_iter: int,
+            eps: Scalar,
             **kwargs
     ):
         # s
@@ -424,8 +425,8 @@ class LQR(Agent):
             next_action = self.act(next_state, policy_type=PolicyType.GREEDY)
 
             # features from (s,a)
-            f_x = self._build_feature_vector(curr_state, curr_action, p)
-            f_x_next = self._build_feature_vector(next_state, next_action, p)
+            f_x = self._build_feature_vector(p, curr_state, curr_action)
+            f_x_next = self._build_feature_vector(p, next_state, next_action)
 
             # update params theta w/ Q-learning
             theta_adj = alpha * (curr_reward + self._q_value(f_x_next, theta, gamma)
@@ -467,12 +468,13 @@ class LQR(Agent):
 
     def _build_feature_vector(
             self,
-            s: Tensor,
-            a: Tensor,
             p: int,
+            # s: Tensor,
+            # a: Tensor,
+            *args,
     ) -> Tensor:
         # s, a -> theta
-        sa = np.concatenate((s, a)).reshape((-1,))
+        sa = np.concatenate(args).reshape((-1,))
         n = sa.shape[0]
 
         # TODO optimize building quadratic features
