@@ -46,8 +46,13 @@ class MultiAgentLQ(MultiAgentEnv):
     def reset(
             self,
             initial_states: Tensors,
+            generating_fn: Callable = None,
             **kwargs
     ):
+        if generating_fn is not None:
+            n_agents = len(self._env_map)
+            initial_states = [generating_fn() for _ in range(n_agents)]
+
         # individual env
         states = [
             env.reset(initial_state) for env, initial_state in zip(

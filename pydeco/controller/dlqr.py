@@ -33,13 +33,15 @@ class MultiAgentLQR(MultiAgent):
             eps: Scalar = 1e-7,
             max_policy_evals: int = 200,
             max_policy_improves: int = 10,
+            reset_every_n: int = 100,
             initial_states: Tensors | None = None,
             sa_initial_policy: Tensor | None = None,
             initial_policies: Tensors | None = None,
             alpha: Scalar = 0.01,
+            initial_state_fn: Callable = None,
     ):
         # initialize
-        ma_env.reset(initial_states)
+        ma_env.reset(initial_states, generating_fn=initial_state_fn)
 
         for env, agent in zip(ma_env._env_map.values(), self._agent_map.values()):
             agent.initialize_qlearn_ls(env.n_s, env.n_a, env.n_neighbors, sa_initial_policy)
@@ -52,15 +54,12 @@ class MultiAgentLQR(MultiAgent):
 
         # pbar = tqdm(total=max_policy_improves * max_policy_evals)
         while not all_converged and iter < max_policy_improves:
-            # TODO REMOVE re-initialize
-            ma_env.reset(initial_states)
-
             # reset covar at the beginning of a new policy eval loop
             for agent in self._agent_map.values():
                 agent.reset_covar()
 
             # policy evaluation loop
-            for _ in range(max_policy_evals):
+            for i_eval in range(max_policy_evals):
                 # make a step with all agents based on the local information
                 for local_env, (agent_id, agent) in zip(ma_env._env_map.values(), self._agent_map.items()):
                     # s, z, a
@@ -90,7 +89,6 @@ class MultiAgentLQR(MultiAgent):
                     next_action = agent.act(next_state, information=next_info, policy_type=PolicyType.GREEDY)
 
                     # construct features from (s, z, a)
-                    # TODO build feature with *args
                     curr_features = agent._build_feature_vector(agent._p, curr_state, *curr_info, curr_action)
                     next_features = agent._build_feature_vector(agent._p, next_state, *next_info, next_action)
                     phi = curr_features - gamma * next_features
@@ -106,8 +104,12 @@ class MultiAgentLQR(MultiAgent):
                     G_adj = num2 / den
                     agent._G_k -= G_adj
 
+                # reset problem to avoid state blow-up due to instable K
+                if i_eval % reset_every_n == 0:
+                    ma_env.reset(initial_states, generating_fn=initial_state_fn)
                 # roll states (curr states <- next states)
-                ma_env.roll_states()
+                else:
+                    ma_env.roll_states()
 
                 # update progress
                 # pbar.update(1)
@@ -222,7 +224,7 @@ class MultiAgentLQR(MultiAgent):
         i = 'iter'
         max_diff = 'max_diff'
 
-        msg = f"|{ai:<7}|{i:<7}|{max_diff:<12}|"
+        msg = f"|{ai:<7}|{i:<7}|{max_diff:<14}|"
 
         self._logger.info(msg)
 
@@ -236,7 +238,7 @@ class MultiAgentLQR(MultiAgent):
 
         max_diff = sc['max_diff']
 
-        msg1 = f'|{agent_id:<7}|{iter:<7}|{max_diff:<12.4f}|'
+        msg1 = f'|{agent_id:<7}|{iter:<7}|{max_diff:<14.7f}|'
 
         self._logger.info(msg1)
 

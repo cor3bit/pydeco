@@ -57,28 +57,29 @@ def run_experiment():
     s0_2 = np.array([0.5, 0.1, 0, 0, 0.1])
     s0 = np.concatenate((s0_0, s0_1, s0_2))
 
-    # -------------- solve CENTRALIZED --------------
-    print('\nCeLQ:')
-
-    lq = CeLQ(n_agents, communication_links, double_count_rewards, A, B, Q, R)
-
-    lqr = LQR()
-
-    lqr.train(
-        lq,
-        method=TrainMethod.ANALYTICAL,
-        initial_state=s0,
-    )
-    # P_star = lqr.P
-    K_star = lqr.K
-    # print(f'P: {P_star}')
-    print(f'K: {K_star}')
-
-    # plotting
     n_steps = 20
     ts = np.linspace(0, 1, num=n_steps + 1)
-    xs_star, us_star, tcost = lqr.simulate_trajectory(lq, s0, 0, 1, n_steps=n_steps)
-    plot_evolution(xs_star, ts, [0, 5, 10], 'TEST')
+
+    # -------------- solve CENTRALIZED --------------
+    # print('\nCeLQ:')
+    #
+    # lq = CeLQ(n_agents, communication_links, double_count_rewards, A, B, Q, R)
+    #
+    # lqr = LQR()
+    #
+    # lqr.train(
+    #     lq,
+    #     method=TrainMethod.ANALYTICAL,
+    #     initial_state=s0,
+    # )
+    # # P_star = lqr.P
+    # K_star = lqr.K
+    # # print(f'P: {P_star}')
+    # print(f'K: {K_star}')
+    #
+    # # plotting
+    # xs_star, us_star, tcost = lqr.simulate_trajectory(lq, s0, 0, 1, n_steps=n_steps)
+    # plot_evolution(xs_star, ts, [0, 5, 10], 'TEST')
 
     # -------------- solve DISTRIBUTED --------------
     ma_env = MultiAgentLQ(
@@ -89,9 +90,10 @@ def run_experiment():
     # training params
     initial_states = [s0_0, s0_1, s0_2]
     gamma = 1.0
-    eps = 1e-3
-    max_policy_evals = 35
-    max_policy_improves = 300
+    eps = 1e-7
+    max_policy_evals = 5000
+    max_policy_improves = 10
+    reset_every_n = 1
 
     # TODO try other initial policies
     sa_k_star = np.array(
@@ -100,7 +102,7 @@ def run_experiment():
          [0., 0.20414527, 0.00281244, -0.60267623, 0.16335665, ], ]
     )
 
-    # sa_k_star = np.full((3, 5), fill_value=-.01)
+    # sa_k_star = np.full((3, 5), fill_value=.01)
 
     # initial_policies = [sa_k_star, sa_k_star, sa_k_star]
 
@@ -110,8 +112,10 @@ def run_experiment():
         eps,
         max_policy_evals,
         max_policy_improves,
+        reset_every_n,
         initial_states,
         sa_k_star,
+        initial_state_fn=initial_state_fn,
     )
 
     # plotting
@@ -119,6 +123,26 @@ def run_experiment():
         ma_env, initial_states, 0, 1, n_steps=n_steps,
     )
     plot_evolution(xs_star, ts, [0, 5, 10], 'TEST')
+
+
+def initial_state_fn():
+    # height error relative to ground or guidance aid, in m;
+    x1 = np.random.exponential(scale=1., size=1).item()
+
+    # forward speed, in m/sec;
+    x2 = np.random.exponential(scale=0.1, size=1).item()
+
+    # pitch angle, in degrees;
+    x3 = np.random.exponential(scale=0.1, size=1).item()
+
+    # rate of change of pitch angle, in degree/sec;
+    x4 = np.random.exponential(scale=0.1, size=1).item()
+
+    # vertical speed, in m/sec
+    x5 = np.random.exponential(scale=0.1, size=1).item()
+
+    return np.array([x1, x2, x3, x4, x5,])
+
 
 
 def problem_setup():

@@ -67,9 +67,10 @@ def run_experiment():
     # training params
     initial_states = [s0_0, s0_1, s0_2]
     gamma = 1.0
-    eps = 1e-3
+    eps = 1e-6
     max_policy_evals = 30
     max_policy_improves = 15
+    reset_every_n = 200
 
     sa_k_star = np.full((1, 1), fill_value=1.)
 
@@ -81,6 +82,7 @@ def run_experiment():
         eps,
         max_policy_evals,
         max_policy_improves,
+        reset_every_n,
         initial_states,
         sa_k_star,
     )
