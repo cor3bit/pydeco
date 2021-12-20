@@ -47,9 +47,9 @@ def run_experiment():
         method=TrainMethod.ANALYTICAL,
         initial_state=s0,
     )
-    # P_star = lqr.P
+    P_star = lqr.P
     K_star = lqr.K
-    # print(f'P: {P_star}')
+    print(f'P: {P_star}')
     print(f'K: {K_star}')
 
     # plotting
@@ -62,17 +62,17 @@ def run_experiment():
     ma_env = MultiAgentLQ(
         n_agents, communication_map, coupled_dynamics, coupled_rewards, A, B, Q, R)
 
-    ma_lqr = MultiAgentLQR(n_agents)
+    ma_lqr = MultiAgentLQR(n_agents, optimal_controller=K_star)
 
     # training params
     initial_states = [s0_0, s0_1, s0_2]
     gamma = 1.0
     eps = 1e-6
-    max_policy_evals = 30
-    max_policy_improves = 15
-    reset_every_n = 200
+    max_policy_evals = 100
+    max_policy_improves = 20
+    reset_every_n = 100
 
-    sa_k_star = np.full((1, 1), fill_value=1.)
+    sa_k_star = np.full((1, 1), fill_value=-.01)
 
     # initial_policies = [sa_k_star, sa_k_star, sa_k_star]
 
@@ -87,14 +87,29 @@ def run_experiment():
         sa_k_star,
     )
 
-    for agent in ma_lqr._agent_map.values():
-        print(agent.K)
+    # for agent in ma_lqr._agent_map.values():
+    #     print(agent.K)
+    K_sim = ma_lqr._reconstruct_full_K(ma_env)
+    print(K_sim)
 
     # plotting
     xs_sim, us_sim, tcost_sim = ma_lqr.simulate_trajectory(
         ma_env, initial_states, 0, 1, n_steps=n_steps,
     )
     plot_evolution(xs_sim, ts, [0, 1, 2], 'TEST')
+
+    # ------ initialize LQR from policy
+    lqr2 = LQR()
+    lqr2.K = K_sim
+
+    lqr2._qlearn_rls_policy_eval(
+        lq,
+        max_policy_evals=5000,
+        reset_every_n=reset_every_n,
+        initial_state=s0,
+        initial_policy=K_sim,
+    )
+    print(f'P_sim: {lqr2.P}')
 
 
 def problem_setup():

@@ -23,15 +23,14 @@ TODO
 * Vanilla LQ
 * Centralized LQ
 * Distributed LQ
-* Non-linear Vehicle Platoon Model
+* Non-linear Vehicle Platoon Model (in progress)
 
 ### Supported Controllers
 
 * LQR Analytical
-* LQR Centralized Q-learning
-* LQR Centralized Least Squares Q-learning  
-* Multi-agent LQR Q-learning (in progress)
-* Multi-agent Q-learning (in progress)
+* LQR GPI (RLS Q-learning Policy Evaluation)  
+* LQR GPI (Q-learning Policy Evaluation)
+* Multi-agent LQR GPI (in progress)
 
 
 ### Acknowledgements
@@ -41,4 +40,11 @@ TODO
 
 ### References
 
-TODO
+1. Steven J. Bradtke, B. Erik Ydstie, Andrew G. Barto, 
+"Adaptive linear quadratic control using policy iteration" (1994)
+2. Siavash Alemzadeh, Mehran Mesbahi, 
+"Distributed Q-Learning for Dynamically Decoupled Systems" (2018)
+3. Daniel Goerges, "Distributed Adaptive Linear Quadratic Control 
+using Distributed Reinforcement Learning" (2019)
+4. Hang Wang, Sen Lin, H. Jafarkhani, Junshan Zhang, "Distributed 
+Q-Learning with State Tracking for Multi-agent Networked Control" (2020)

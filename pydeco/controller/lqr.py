@@ -3,9 +3,10 @@ from time import perf_counter
 from queue import Queue
 
 import numpy as np
+from scipy.linalg import solve_discrete_are as dare
 
 from pydeco.types import *
-from pydeco.constants import PolicyType, TrainMethod, NoiseShape
+from pydeco.constants import *
 from pydeco.problem.lq import LQ
 from pydeco.controller.agent import Agent
 
@@ -28,9 +29,11 @@ class LQR(Agent):
         self._noise_type = noise_type
         self._noise_params = None
 
-        # model
+        # linear model defines matrices - P, H, K
         # Value function matrix (n_s, n_s)
         self._P = None
+        # Q-value function matrix ([n_s, n_a], [n_s, n_a])
+        self._H = None
         # Policy matrix (n_s, n_a)
         self._K = None
 
@@ -71,6 +74,7 @@ class LQR(Agent):
             self,
             env: LQ,
             method: str,
+            policy_eval: str = PolicyEvaluation.QLEARN_RLS,
             gamma: Scalar = 1.,
             eps: Scalar = 1e-8,
             max_iter: int = 100,
@@ -88,40 +92,32 @@ class LQR(Agent):
 
         # find optimal policy
         match method:
-            case TrainMethod.ANALYTICAL:
-                P, K = self._train_analytical_lqr(
+            case TrainMethod.DARE:
+                self._train_analytical_dare(
                     env,
-                    gamma,
-                    eps,
-                    max_iter,
+                    gamma=gamma,
                 )
-            case TrainMethod.QLEARN:
-                P, K = self._train_qlearn_lqr(
+            case TrainMethod.ITERATIVE:
+                self._train_analytical_iterative(
                     env,
-                    initial_state,
-                    initial_policy,
-                    gamma,
-                    alpha=alpha,
-                    max_iter=max_iter,
+                    gamma=gamma,
                     eps=eps,
+                    max_iter=max_iter,
                 )
-            case TrainMethod.QLEARN_LS:
-                P, K = self._train_qlearn_ls_lqr(
-                    env,
-                    initial_state,
-                    initial_policy,
-                    gamma,
+            case TrainMethod.GPI:
+                self._train_gpi(
+                    env=env,
+                    policy_eval=policy_eval,
+                    gamma=gamma,
+                    eps=eps,
                     max_policy_evals=max_policy_evals,
                     max_policy_improves=max_policy_improves,
-                    eps=eps,
+                    initial_state=initial_state,
+                    initial_policy=initial_policy,
+                    alpha=alpha,
                 )
             case _:
                 raise ValueError(f'Method {method} not supported.')
-
-        # save calibrated values
-        self._P = P
-        self._K = K
-        self._calibrated = True
 
     def simulate_trajectory(
             self,
@@ -149,7 +145,7 @@ class LQR(Agent):
         xs = [x_k]
         us = []
         total_cost = .0
-        for k in time_grid[:-1]:
+        for _ in time_grid[:-1]:
             # optimal control at k
             u_k = self.act(x_k)
             us.append(u_k)
@@ -241,7 +237,33 @@ class LQR(Agent):
 
         self._logger.info(msg1 + msg2)
 
-    def _train_analytical_lqr(
+    def _train_analytical_dare(
+            self,
+            env: LQ,
+            gamma: Scalar,
+            **kwargs
+    ):
+        # analytical solution requires access to the LQ model
+        A_, B_, Q, R = env.get_model()
+
+        # adjust A and B for gamma
+        A = A_ * np.sqrt(gamma)
+        B = B_ * np.sqrt(gamma)
+
+        # numpy solution
+        P = dare(
+            np.array(A),
+            np.array(B),
+            np.array(Q),
+            np.array(R),
+        )
+
+        # save output
+        self.P = P
+        self.K = - np.linalg.inv(R + B.T @ P @ B) @ B.T @ P @ A
+        self._calibrated = True
+
+    def _train_analytical_iterative(
             self,
             env: LQ,
             gamma: Scalar,
@@ -250,11 +272,11 @@ class LQR(Agent):
             **kwargs
     ):
         # analytical solution requires access to the LQ model
-        A, B, Q, R = env.get_model()
+        A_, B_, Q, R = env.get_model()
 
         # apply discounting
-        A = np.sqrt(gamma) * A
-        B = np.sqrt(gamma) * B
+        A = np.sqrt(gamma) * A_
+        B = np.sqrt(gamma) * B_
 
         # calculate P, K by iteratively updating P
         err = np.inf
@@ -278,12 +300,148 @@ class LQR(Agent):
 
         self._logger.info(f'Converged after {iter} iterations.')
 
-        return P, K
+        # save output
+        self.P = P
+        self.K = K
+        self._calibrated = True
 
-    def _ls_policy_eval(self):
-        pass
+    def _train_gpi(
+            self,
+            env: LQ,
+            policy_eval,
+            gamma,
+            eps,
+            max_policy_evals,
+            max_policy_improves,
+            initial_state,
+            initial_policy,
+            alpha,
+            **kwargs
+    ):
+        # s
+        curr_state = env.reset(initial_state)
 
-    def _ls_policy_improve(self):
+        # clear previous results
+        self._cache.clear()
+
+        # initial stabilizing controller
+        n_s = env.n_s
+        n_a = env.n_a
+        n_q = n_s + n_a
+        p = int(n_q * (n_q + 1) / 2)
+
+        self._noise_params = (np.zeros((n_a,)), np.eye(n_a), (1000,))
+
+        self._K = initial_policy
+        H_k = None
+
+        beta = 1
+        theta = np.full((p, 1), fill_value=.0)
+
+        pi_improve_iter = 0
+        pi_improve_converged = False
+
+        while not pi_improve_converged and pi_improve_iter < max_policy_improves:
+
+            # policy evaluation - given K, compute H
+            match policy_eval:
+                case PolicyEvaluation.QLEARN:
+                    self._qlearn_rls_policy_eval()
+                case PolicyEvaluation.QLEARN_RLS:
+                    self._qlearn_policy_eval()
+                case _:
+                    raise ValueError(f'Policy Eval {policy_eval} not supported.')
+
+            # policy improvement - given H_K, re-compute K
+            H_k = self._convert_to_parameter_matrix(theta, n_q)
+            H_uk = H_k[n_s:, :n_s]
+            H_uu = H_k[n_s:, n_s:]
+
+            # argmax policy
+            K_new = -np.linalg.inv(H_uu) @ H_uk
+
+            # update counter
+            pi_improve_iter += 1
+
+            # convergence
+            # TODO consider stop at |P_new - P|
+            pi_improve_converged = np.max(np.abs(K_new - self._K)) < eps
+            self._K = K_new
+
+        return H_k[:n_s, :n_s], self._K
+
+    def _qlearn_rls_policy_eval(
+            self,
+            env: LQ,
+            gamma: Scalar = 1.,
+            eps: Scalar = 1e-8,
+            max_policy_evals: int = 80,
+            reset_every_n: int = 1000,
+            initial_state: Tensor | None = None,
+            initial_policy: Tensor | None = None,
+            beta: Scalar = 1.,
+            **kwargs
+    ):
+        n_s = env.n_s
+        n_a = env.n_a
+        n_q = n_s + n_a
+        p = int(n_q * (n_q + 1) / 2)
+
+        self._noise_params = (np.zeros((n_a,)), np.eye(n_a), (1000,))
+
+        theta = np.full((p, 1), fill_value=.0)
+
+        pi_eval_iter = 0
+        pi_eval_converged = False
+
+        G_k = np.eye(p) * beta
+
+        # s
+        curr_state = env.reset(initial_state)
+
+        while not pi_eval_converged and pi_eval_iter < max_policy_evals:
+            # a
+            curr_action = self.act(curr_state, policy_type=PolicyType.EPS_GREEDY)
+
+            # r, s'
+            curr_reward, next_state = env.step(curr_action)
+
+            # max_a'
+            next_action = self.act(next_state, policy_type=PolicyType.GREEDY)
+
+            # features from (s,a)
+            f_x = self._build_feature_vector(p, curr_state, curr_action)
+            f_x_next = self._build_feature_vector(p, next_state, next_action)
+
+            # update params theta w/ RLS
+            phi = f_x - gamma * f_x_next
+
+            num = G_k @ phi * (curr_reward - phi.T @ theta)
+            den = 1 + phi.T @ G_k @ phi
+            theta_adj = num / den
+            theta += theta_adj
+
+            num2 = G_k @ phi @ phi.T @ G_k
+            G_adj = num2 / den
+            G_k -= G_adj
+
+            # convergence
+            theta_adj_diff = np.max(np.abs(theta_adj))
+            pi_eval_converged = theta_adj_diff < eps
+
+            # update current state or reset
+            if pi_eval_iter % reset_every_n == 0:
+                curr_state = env.reset(initial_state)
+            else:
+                curr_state = next_state
+
+            # update counter
+            pi_eval_iter += 1
+
+        H_k = self._convert_to_parameter_matrix(theta, n_q)
+        self._P = H_k[:n_s, :n_s]
+
+    def _qlearn_policy_eval(self):
         pass
 
     def _train_qlearn_ls_lqr(
@@ -516,14 +674,6 @@ class LQR(Agent):
         # H_u[di] = H_u[di] * 0.5
 
         return H_u
-
-    def _convert_to_parameter_vector(
-            self,
-            s: Tensor,
-            a: Tensor,
-    ) -> Tensor:
-        # H_u -> thetas
-        raise NotImplementedError
 
     def _refill_noise_cache(self):
         noise_mean, noise_cov, noise_size = self._noise_params

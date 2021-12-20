@@ -10,9 +10,14 @@ class ContainerMeta(type):
 
 
 class TrainMethod(metaclass=ContainerMeta):
-    ANALYTICAL = 'analytical'
-    QLEARN_LS = 'Least Squares Q-learning'
+    DARE = 'DARE'
+    ITERATIVE = 'Analytical Iterative'
+    GPI = 'Generalized Policy Iteration'
+
+
+class PolicyEvaluation(metaclass=ContainerMeta):
     QLEARN = 'Q-learning'
+    QLEARN_RLS = 'RLS Q-learning'
 
 
 class PolicyType(metaclass=ContainerMeta):
@@ -22,4 +27,8 @@ class PolicyType(metaclass=ContainerMeta):
 
 
 class NoiseShape(metaclass=ContainerMeta):
-    MV_NORMAL = 'MVNormal'
+    MV_NORMAL = 'MV Normal'
+
+
+class ConvergenceCriteria(metaclass=ContainerMeta):
+    K_INF_NORM = 'K Inf Norm'

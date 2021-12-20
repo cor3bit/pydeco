@@ -16,9 +16,13 @@ class MultiAgentLQR(MultiAgent):
     def __init__(
             self,
             n_agents: int,
+            optimal_controller: Tensor = None,
             verbose: bool = True,
     ):
         self._agent_map = {i: LocalLQR() for i in range(n_agents)}
+
+        # optimal K* for logging
+        self._K_star = optimal_controller
 
         # logging
         self._configure_logger('MAQL-RLS', verbose)
@@ -48,12 +52,12 @@ class MultiAgentLQR(MultiAgent):
 
         # policy improvement loop
         all_converged = False
-        iter = 0
+        iter = 1
 
         self._log_header()
 
         # pbar = tqdm(total=max_policy_improves * max_policy_evals)
-        while not all_converged and iter < max_policy_improves:
+        while (not all_converged) and (not iter > max_policy_improves):
             # reset covar at the beginning of a new policy eval loop
             for agent in self._agent_map.values():
                 agent.reset_covar()
@@ -122,6 +126,12 @@ class MultiAgentLQR(MultiAgent):
 
                 self._save_param(agent_id, iter, 'max_diff', diff)
                 self._log_step(agent_id, iter)
+
+            # logging against optimal sln
+            if self._K_star is not None:
+                K_distr = self._reconstruct_full_K(ma_env)
+                self._save_param('-', iter, 'opt_diff', np.linalg.norm((K_distr, self._K_star)))
+                self._log_step('-', iter)
 
             # update iteration
             iter += 1
@@ -222,9 +232,10 @@ class MultiAgentLQR(MultiAgent):
     def _log_header(self):
         ai = 'agent'
         i = 'iter'
-        max_diff = 'max_diff'
+        max_diff = 'K_max_diff'
+        opt_policy = '||K*-K||'
 
-        msg = f"|{ai:<7}|{i:<7}|{max_diff:<14}|"
+        msg = f"|{i:^7}|{ai:^7}|{max_diff:^12}|{opt_policy:^12}|"
 
         self._logger.info(msg)
 
@@ -234,13 +245,34 @@ class MultiAgentLQR(MultiAgent):
             iter: int,
     ):
         key = (agent_id, iter)
-        sc = self._cache[key]
+        agent_cache_at_iter = self._cache[key]
 
-        max_diff = sc['max_diff']
+        max_diff = agent_cache_at_iter['max_diff'] if 'max_diff' in agent_cache_at_iter else np.NaN
+        opt_policy = agent_cache_at_iter['opt_diff'] if 'opt_diff' in agent_cache_at_iter else np.NaN
 
-        msg1 = f'|{agent_id:<7}|{iter:<7}|{max_diff:<14.7f}|'
+        msg1 = f'|{iter:<7}|{agent_id:<7}|{max_diff:<12.5f}|{opt_policy:<12.5f}|'
 
         self._logger.info(msg1)
+
+    def _reconstruct_full_K(self, ma_env: MultiAgentLQ):
+        agent_policies = []
+
+        n_agents = len(self._agent_map)
+
+        for local_env, (agent_id, agent) in zip(ma_env._env_map.values(), self._agent_map.items()):
+            n_s, n_a = local_env.n_s, local_env.n_a
+            K_agent = agent.K
+
+            K_strip = np.zeros((n_a, n_agents * n_s))
+
+            K_strip[:, agent_id:agent_id+n_s] = K_agent[:, :n_s]
+
+            for i, neighbor in enumerate(local_env.neighbors, start=1):
+                K_strip[:, neighbor:neighbor+n_s] = K_agent[:, i:i+n_s]
+
+            agent_policies.append(K_strip)
+
+        return np.concatenate(agent_policies)
 
 
 class LocalLQR(LQR):

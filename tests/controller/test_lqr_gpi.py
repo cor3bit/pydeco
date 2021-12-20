@@ -5,13 +5,13 @@ from scipy.linalg import solve_discrete_are as dare
 
 from pydeco.controller.lqr import LQR
 from pydeco.problem.lq import LQ
-from pydeco.constants import TrainMethod
+from pydeco.constants import *
 
 from tests.cases import goerges19
 from tests.utils import true_P_K
 
 
-def test_fit_qlearn_ls(goerges19):
+def test_fit_qlearn_rls(goerges19):
     np.random.seed(42)
 
     A, B, Q, R, s0, K0 = goerges19
@@ -30,8 +30,9 @@ def test_fit_qlearn_ls(goerges19):
 
     lqr.train(
         lq,
-        TrainMethod.QLEARN_LS,
-        gamma,
+        TrainMethod.GPI,
+        PolicyEvaluation.QLEARN_RLS,
+        gamma=gamma,
         initial_state=s0,
         initial_policy=K0,
         max_policy_evals=n_evals,
@@ -71,8 +72,9 @@ def test_fit_qlearn(goerges19):
 
     lqr.train(
         lq,
-        TrainMethod.QLEARN,
-        gamma,
+        TrainMethod.GPI,
+        PolicyEvaluation.QLEARN,
+        gamma=gamma,
         initial_state=s0,
         initial_policy=K0,
         alpha=alpha,

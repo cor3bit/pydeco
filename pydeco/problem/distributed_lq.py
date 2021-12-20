@@ -230,6 +230,19 @@ class LocalLQ(LQ):
     #     state_info = np.concatenate((self.get_state(), *information))
     #     return self._A @ state_info + self._B @ action
 
+    def get_full_model(self):
+        n_agents = 1 + self.n_neighbors
+        I_n = np.eye(n_agents)
+        A_ = np.kron(I_n, self._A)
+
+        B_ = np.kron(I_n, self._B)
+
+        ls = np.zeros((n_agents, n_agents))
+        ls[0, 0] = 1
+        R_ = np.kron(ls, self._R)
+
+        return A_, B_, self._Q, R_
+
     def _reward_fn(
             self,
             action: Tensor,

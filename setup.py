@@ -15,5 +15,7 @@ setuptools.setup(
     packages=setuptools.find_packages(exclude=['artifacts', 'examples', 'experiments', 'tests']),
     install_requires=[
         'numpy',
+        'matplotlib',
+        'seaborn',
     ],
 )

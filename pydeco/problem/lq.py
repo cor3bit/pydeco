@@ -23,19 +23,21 @@ class LQ(Env):
         self._Q = state_reward_matrix
         self._R = action_reward_matrix
 
+        # dimensions
+        n, m = self._B.shape
+        self._n_s = n
+        self._n_a = m
+
         # dimension check
-        self._check_model_dimensions()
         if check_dimensions:
+            self._check_model_dimensions()
             self._check_reward_dimensions()
 
     def _check_model_dimensions(self):
         n, n_ = self._A.shape
         assert n == n_
-        self._n_s = n
-
         n_, m = self._B.shape
         assert n == n_
-        self._n_a = m
 
     def _check_reward_dimensions(self):
         q_n, q_n_ = self._Q.shape
