@@ -25,18 +25,23 @@ def test_fit_qlearn_rls(goerges19):
 
     # train params
     gamma = 1.0
+
     n_evals = 100
     n_improves = 5
+    reset_every_n = 1000
 
     lqr.train(
         lq,
         TrainMethod.GPI,
         PolicyEvaluation.QLEARN_RLS,
         gamma=gamma,
-        initial_state=s0,
-        initial_policy=K0,
+
         max_policy_evals=n_evals,
         max_policy_improves=n_improves,
+        reset_every_n=reset_every_n,
+
+        initial_state=s0,
+        initial_policy=K0,
     )
 
     calc_P, calc_K = lqr.P, lqr.K
@@ -66,19 +71,27 @@ def test_fit_qlearn(goerges19):
 
     # train params
     gamma = 1.0
-    alpha = 0.0008
-    max_iter = 12000
+    alpha = 0.0005
     eps = 1e-8
+
+    n_evals = 100
+    n_improves = 70
+    reset_every_n = 1000
 
     lqr.train(
         lq,
         TrainMethod.GPI,
         PolicyEvaluation.QLEARN,
         gamma=gamma,
+
         initial_state=s0,
         initial_policy=K0,
+
+        max_policy_evals=n_evals,
+        max_policy_improves=n_improves,
+        reset_every_n=reset_every_n,
+
         alpha=alpha,
-        max_iter=max_iter,
         eps=eps,
     )
 
