@@ -281,7 +281,7 @@ class LocalLQR(LQR):
             noise_type: str = NoiseShape.MV_NORMAL,
             verbose: bool = True,
     ):
-        super().__init__('LocalLQR', noise_type, verbose)
+        super().__init__('LocalLQR', noise_type, verbose=verbose)
 
     def act(
             self,

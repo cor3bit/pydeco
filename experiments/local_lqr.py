@@ -66,7 +66,7 @@ def run_experiment():
 
     lqr = LQR()
 
-    lqr.train(lq_generic, method=TrainMethod.ANALYTICAL, max_iter=100)
+    lqr.train(lq_generic, method=TrainMethod.ITERATIVE, max_iter=100)
     print(f'P: {lqr.P}')
     print(f'K: {lqr.K}')
 

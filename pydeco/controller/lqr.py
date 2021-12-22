@@ -534,6 +534,10 @@ class LQR(Agent):
             # update counter
             pi_eval_iter += 1
 
+        # logging
+        self._save_param(gpi_iter, 'n_evals', pi_eval_iter)
+        self._save_param(gpi_iter, 'eval_conv', pi_eval_converged)
+
         # save output of policy eval
         self._H = self._convert_to_parameter_matrix(self._weights, self._n_q)
         self._P = self._H[:self._n_s, :self._n_s]

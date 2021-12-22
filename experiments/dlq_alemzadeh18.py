@@ -61,25 +61,25 @@ def run_experiment():
     ts = np.linspace(0, 1, num=n_steps + 1)
 
     # -------------- solve CENTRALIZED --------------
-    # print('\nCeLQ:')
-    #
-    # lq = CeLQ(n_agents, communication_links, double_count_rewards, A, B, Q, R)
-    #
-    # lqr = LQR()
-    #
-    # lqr.train(
-    #     lq,
-    #     method=TrainMethod.ANALYTICAL,
-    #     initial_state=s0,
-    # )
-    # # P_star = lqr.P
-    # K_star = lqr.K
-    # # print(f'P: {P_star}')
-    # print(f'K: {K_star}')
-    #
-    # # plotting
-    # xs_star, us_star, tcost = lqr.simulate_trajectory(lq, s0, 0, 1, n_steps=n_steps)
-    # plot_evolution(xs_star, ts, [0, 5, 10], 'TEST')
+    print('\nCeLQ:')
+
+    lq = CeLQ(n_agents, communication_links, double_count_rewards, A, B, Q, R)
+
+    lqr = LQR()
+
+    lqr.train(
+        lq,
+        method=TrainMethod.ITERATIVE,
+        initial_state=s0,
+    )
+    # P_star = lqr.P
+    K_star = lqr.K
+    # print(f'P: {P_star}')
+    print(f'K: {K_star}')
+
+    # plotting
+    xs_star, us_star, tcost = lqr.simulate_trajectory(lq, s0, 0, 1, n_steps=n_steps)
+    plot_evolution(xs_star, ts, [0, 5, 10], 'TEST')
 
     # -------------- solve DISTRIBUTED --------------
     ma_env = MultiAgentLQ(

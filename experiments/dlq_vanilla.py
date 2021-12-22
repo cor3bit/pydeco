@@ -102,7 +102,7 @@ def run_experiment():
     lqr2 = LQR()
     lqr2.K = K_sim
 
-    lqr2._qlearn_rls_policy_eval(
+    lqr2._policy_eval_qlearn_rls(
         lq,
         max_policy_evals=5000,
         reset_every_n=reset_every_n,
