@@ -1,10 +1,10 @@
 from typing import Sequence, Union, Optional, Any, Dict, Tuple, Callable
 
-import jax.numpy as np
+from numpy import ndarray
 
-Tensor = np.ndarray
+Tensor = ndarray
 Tensors = Sequence[Tensor]
 TensorOrTensors = Union[Tensor, Tensors]
 
-Scalar = Union[float, Tensor]
+Scalar = float
 Vector = Union[Sequence[float], Tensor]

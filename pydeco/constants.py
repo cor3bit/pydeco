@@ -9,6 +9,26 @@ class ContainerMeta(type):
         return item in cls.all()
 
 
-class CONTROLLER_TYPE(metaclass=ContainerMeta):
-    analytic = 'analytic'
-    gnn = 'gnn'
+class TrainMethod(metaclass=ContainerMeta):
+    DARE = 'DARE'
+    ITERATIVE = 'Analytical Iterative'
+    GPI = 'Generalized Policy Iteration'
+
+
+class PolicyEvaluation(metaclass=ContainerMeta):
+    QLEARN = 'Q-learning'
+    QLEARN_RLS = 'RLS Q-learning'
+
+
+class PolicyType(metaclass=ContainerMeta):
+    RANDOM = 'random'
+    EPS_GREEDY = 'epsilon greedy'
+    GREEDY = 'greedy'
+
+
+class NoiseShape(metaclass=ContainerMeta):
+    MV_NORMAL = 'MV Normal'
+
+
+class ConvergenceCriteria(metaclass=ContainerMeta):
+    K_INF_NORM = 'K Inf Norm'

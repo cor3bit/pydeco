@@ -7,13 +7,15 @@ def read(fname):
 
 
 setuptools.setup(
-    name='PyDeCo',
-    version='0.0,1',
+    name='PyDeco',
+    version='0.0.1',
     author='Nick Korbit',
-    description='Decentralized Control Algorithms written in JAX.',
+    description='Playground for Decentralized and Distributed Control Algorithms.',
     long_description=read('README.md'),
-    packages=setuptools.find_packages(exclude=['examples', 'tests']),
+    packages=setuptools.find_packages(exclude=['artifacts', 'examples', 'experiments', 'tests']),
     install_requires=[
-        'jax',
+        'numpy',
+        'matplotlib',
+        'seaborn',
     ],
 )
