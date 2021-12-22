@@ -25,7 +25,7 @@ def run_experiment():
 
     lqr.train(
         lq,
-        method=TrainMethod.ANALYTICAL,
+        method=TrainMethod.ITERATIVE,
         initial_state=x0,
     )
     # print(f'P: {lqr.P}')
@@ -38,11 +38,14 @@ def run_experiment():
 
     lqr.train(
         lq,
-        method=TrainMethod.QLEARN_LS,
+        method=TrainMethod.GPI,
+        policy_eval=PolicyEvaluation.QLEARN_RLS,
+        max_policy_evals=200,
+        max_policy_improves=100,
+        reset_every_n=10,
         initial_state=x0,
         initial_policy=K0,
-        max_policy_evals=200,
-        max_policy_improves=50,
+        optimal_controller=lqr.K,
     )
     # print(f'P: {lqr.P}')
     print(f'K: {lqr.K}')

@@ -16,7 +16,6 @@ class LQR(Agent):
             self,
             name: str = 'LQR',
             noise_type: str = NoiseShape.MV_NORMAL,
-            optimal_controller: Tensor | None = None,
             verbose: bool = True,
     ):
         # logger
@@ -26,7 +25,7 @@ class LQR(Agent):
         self._cache = {}
 
         # optimal K* for logging
-        self._K_star = optimal_controller
+        self._K_star = None
 
         # noise
         self._noise_cache = Queue()
@@ -87,6 +86,7 @@ class LQR(Agent):
             reset_every_n: int = 100,
             initial_state: Tensor | None = None,
             initial_policy: Tensor | None = None,
+            optimal_controller: Tensor | None = None,
             alpha: Scalar = 0.01,
             **kwargs
     ):
@@ -95,12 +95,16 @@ class LQR(Agent):
 
         self._logger.info(f'Calibrating controller.')
 
+        # optimal policy for logging
+        self._K_star = optimal_controller
+
         # find optimal policy
         match method:
             case TrainMethod.DARE:
                 self._train_analytical_dare(
                     env,
                     gamma=gamma,
+                    **kwargs
                 )
             case TrainMethod.ITERATIVE:
                 self._train_analytical_iterative(
@@ -108,6 +112,7 @@ class LQR(Agent):
                     gamma=gamma,
                     eps=eps,
                     max_iter=max_iter,
+                    **kwargs
                 )
             case TrainMethod.GPI:
                 self._train_gpi(
@@ -121,6 +126,7 @@ class LQR(Agent):
                     initial_state=initial_state,
                     initial_policy=initial_policy,
                     alpha=alpha,
+                    **kwargs
                 )
             case _:
                 raise ValueError(f'Method {method} not supported.')
@@ -208,40 +214,28 @@ class LQR(Agent):
 
     def _log_header(self):
         i = 'iter'
-        loss = 'loss'
-        kkt = 'kkt_viol'
-        alpha = 'alpha'
-        bt_n = 'bt_N'
-        sigma = 'sigma'
+        n_evals = 'n_evals'
+        eval_conv = 'e_conv'
+        k_max_diff = 'K_iter_diff'
+        opt_diff = 'K*_diff'
 
-        msg = f"|{i:<5}|{loss:<10}|{kkt:<10}|{alpha:<10}|{bt_n:<5}|{'infs':<5}|{sigma:<8}|"
-        msg2 = f"{'d_min':<8}|{'d_max':<8}|{'kkt_eq':<9}|{'kkt_ineq':<9}|{'kkt_lgr':<9}|"
+        msg = f"|{i:^7}|{n_evals:^7}|{eval_conv:^7}|{k_max_diff:^12}|{opt_diff:^12}|"
 
-        self._logger.info(msg + msg2)
+        self._logger.info(msg)
 
     def _log_step(
             self,
-            k: int,
+            iter: int,
     ):
-        sc = self._cache[k]
-        loss = sc['loss']
-        kkt = sc['penalty']
-        alpha = sc['alpha']
-        bt_n = sc['bt_n']
-        sigma = sc['sigma']
+        sc = self._cache[iter]
+        n_evals = sc['n_evals']
+        eval_conv = 'Y' if sc['eval_conv'] else 'N'
+        k_max_diff = sc['K_max_diff']
+        opt_diff = sc['opt_diff'] if 'opt_diff' in sc else np.nan
 
-        d_min = sc['min_d']
-        d_max = sc['max_d']
-        max_c_eq = sc['max_c_eq']
-        max_c_ineq = sc['max_c_ineq']
-        max_grad_lgr = sc['max_grad_Lagrangian']
+        msg = f'|{iter:<7}|{n_evals:<7}|{eval_conv:<7}|{k_max_diff:<12.8f}|{opt_diff:<12.8f}|'
 
-        is_infs = 'Y' if sc['is_infeasible'] else 'N'
-
-        msg1 = f'|{k:<5}|{loss:<10.4f}|{kkt:<10.4f}|{alpha:<10.6f}|{bt_n:<5}|{is_infs:<5}|{sigma:<8.4f}|'
-        msg2 = f'{d_min:<8.2f}|{d_max:<8.2f}|{max_c_eq:<9.4f}|{max_c_ineq:<9.4f}|{max_grad_lgr:<9.4f}|'
-
-        self._logger.info(msg1 + msg2)
+        self._logger.info(msg)
 
     def _train_analytical_dare(
             self,
@@ -385,6 +379,7 @@ class LQR(Agent):
                 eps=eps,
                 max_policy_evals=max_policy_evals,
                 reset_every_n=reset_every_n,
+                gpi_iter=pi_improve_iter,
                 initial_state=initial_state,
                 alpha=alpha,
             )
@@ -397,11 +392,18 @@ class LQR(Agent):
             K_new = -np.linalg.inv(H_uu) @ H_uk
 
             # convergence
-            pi_improve_converged = np.max(np.abs(K_new - self._K)) < eps
+            k_diff = np.max(np.abs(K_new - self._K))
+            self._save_param(pi_improve_iter, 'K_max_diff', k_diff)
+            pi_improve_converged = k_diff < eps
             self._K = K_new
 
-            # TODO logging
-            # self._log_step(pi_improve_iter)
+            # diff with K* (if given)
+            if self._K_star is not None:
+                opt_diff = np.max(np.abs(self._K_star - self._K))
+                self._save_param(pi_improve_iter, 'opt_diff', opt_diff)
+
+            # logging
+            self._log_step(pi_improve_iter)
 
             # update counter
             pi_improve_iter += 1
@@ -418,6 +420,7 @@ class LQR(Agent):
             eps: Scalar,
             max_policy_evals: int,
             reset_every_n: int,
+            gpi_iter: int,
             initial_state: Tensor,
             beta: Scalar = 1.,
             **kwargs
@@ -471,6 +474,10 @@ class LQR(Agent):
             # update counter
             pi_eval_iter += 1
 
+        # logging
+        self._save_param(gpi_iter, 'n_evals', pi_eval_iter)
+        self._save_param(gpi_iter, 'eval_conv', pi_eval_converged)
+
         # save output of policy eval
         self._H = self._convert_to_parameter_matrix(self._weights, self._n_q)
         self._P = self._H[:self._n_s, :self._n_s]
@@ -482,6 +489,7 @@ class LQR(Agent):
             eps: Scalar,
             max_policy_evals: int,
             reset_every_n: int,
+            gpi_iter: int,
             initial_state: Tensor,
             alpha: Scalar = .01,
             beta: Scalar = 1.,
