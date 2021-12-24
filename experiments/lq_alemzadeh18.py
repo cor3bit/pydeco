@@ -17,10 +17,10 @@ def run_experiment():
     lq = LQ(A, B, Q, R)
 
     # sim params
-    x0 = np.zeros(shape=(n_s,))
+    x0 = np.ones(shape=(n_s,))
 
     # Closed-form
-    print('\nRiccati LQR:')
+    # print('\nRiccati LQR:')
     lqr = LQR()
 
     lqr.train(
@@ -28,27 +28,55 @@ def run_experiment():
         method=TrainMethod.ITERATIVE,
         initial_state=x0,
     )
+
+    K_star = np.array(lqr.K)
     # print(f'P: {lqr.P}')
-    print(f'K: {lqr.K}')
+    # print(f'K: {lqr.K}')
 
-    # Q-learning
-    print('\nQ-learning LQR:')
+    # ------------ Q-learning RLS ------------
+    # print('\nQ-learning LQR:')
 
-    K0 = np.full_like(lqr.K, fill_value=-0.01)
+    K0 = np.full_like(lqr.K, fill_value=-0.1)
 
+    # lqr.train(
+    #     lq,
+    #     method=TrainMethod.GPI,
+    #     policy_eval=PolicyEvaluation.QLEARN_RLS,
+    #     max_policy_evals=1000,
+    #     max_policy_improves=30,
+    #     reset_every_n=10,
+    #     initial_state=x0,
+    #     initial_policy=K0,
+    #     optimal_controller=K_star,
+    # )
+
+    # ------------ Q-learning ------------
+    # lqr.train(
+    #     lq,
+    #     method=TrainMethod.GPI,
+    #     policy_eval=PolicyEvaluation.QLEARN,
+    #     alpha=0.01,
+    #     max_policy_evals=5000,
+    #     max_policy_improves=30,
+    #     reset_every_n=1,
+    #     initial_state=x0,
+    #     initial_policy=K0,
+    #     optimal_controller=K_star,
+    # )
+
+    # ------------ Q-learning Gauss-Newton ------------
     lqr.train(
         lq,
         method=TrainMethod.GPI,
-        policy_eval=PolicyEvaluation.QLEARN_RLS,
-        max_policy_evals=200,
+        policy_eval=PolicyEvaluation.QLEARN_GN,
+        alpha=.05,
+        max_policy_evals=1000,
         max_policy_improves=100,
-        reset_every_n=10,
+        reset_every_n=5,
         initial_state=x0,
         initial_policy=K0,
-        optimal_controller=lqr.K,
+        optimal_controller=K_star,
     )
-    # print(f'P: {lqr.P}')
-    print(f'K: {lqr.K}')
 
 
 def problem_setup():

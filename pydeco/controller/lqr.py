@@ -1,5 +1,4 @@
 import logging
-from time import perf_counter
 from queue import Queue
 
 import numpy as np
@@ -357,12 +356,14 @@ class LQR(Agent):
         # fix policy eval function
         policy_eval_fn = None
         match policy_eval:
+            case PolicyEvaluation.QLEARN | PolicyEvaluation.QLEARN_GN:
+                policy_eval_fn = self._policy_eval_qlearn
             case PolicyEvaluation.QLEARN_RLS:
                 policy_eval_fn = self._policy_eval_qlearn_rls
-            case PolicyEvaluation.QLEARN:
-                policy_eval_fn = self._policy_eval_qlearn
             case _:
                 raise ValueError(f'Policy Eval {policy_eval} not supported.')
+
+        gn_approx = policy_eval == PolicyEvaluation.QLEARN_GN
 
         # logging
         self._log_header()
@@ -382,6 +383,7 @@ class LQR(Agent):
                 gpi_iter=pi_improve_iter,
                 initial_state=initial_state,
                 alpha=alpha,
+                gn_approx=gn_approx,
             )
 
             # policy improvement - given H_K, re-compute K
@@ -491,8 +493,8 @@ class LQR(Agent):
             reset_every_n: int,
             gpi_iter: int,
             initial_state: Tensor,
-            alpha: Scalar = .01,
-            beta: Scalar = 1.,
+            alpha: Scalar,
+            gn_approx: bool,
             **kwargs
     ):
         # s
@@ -517,8 +519,9 @@ class LQR(Agent):
             f_x_next = self._build_feature_vector(self._p, next_state, next_action)
 
             # update weights w/ Q-learning
-            w_adj = alpha * (curr_reward + gamma * self._q_value(
-                f_x_next, self._weights) - self._q_value(f_x, self._weights)) * f_x
+            td_err = curr_reward + gamma * self._q_value(f_x_next, self._weights) - self._q_value(f_x, self._weights)
+            gn_adj = 1. / (f_x.T @ f_x) if gn_approx else 1.
+            w_adj = alpha * td_err * f_x * gn_adj
             self._weights += w_adj
 
             # convergence

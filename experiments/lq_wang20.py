@@ -27,46 +27,78 @@ if __name__ == '__main__':
     lq = LQ(A, B, Q, R)
 
     # sim params
-    x0 = np.full(shape=(n_x,), fill_value=0.01)
+    x0 = np.full(shape=(n_x,), fill_value=0.)
 
     t0, tn, n_steps = 0., 1., 20
 
     # Closed-form
-    print('\nRiccati LQR:')
+    # print('\nRiccati LQR:')
     lqr = LQR()
 
     lqr.train(lq, method=TrainMethod.ITERATIVE, initial_state=x0)
-    print(f'P: {lqr.P}')
-    print(f'K: {lqr.K}')
 
-    xs, us, tcost = lqr.simulate_trajectory(lq, x0, t0, tn, n_steps)
-    print(f'Total Cost: {tcost}')
+    K_star = np.array(lqr.K)
+    # print(f'P: {lqr.P}')
+    # print(f'K: {lqr.K}')
+    #
+    # xs, us, tcost = lqr.simulate_trajectory(lq, x0, t0, tn, n_steps)
+    # print(f'Total Cost: {tcost}')
 
-    # Q-learning
-    print('\nQ-learning LQR:')
+    # ------------ Q-learning RLS ------------
+    # print('\nQ-learning LQR:')
 
-    # K0 = np.full_like(alqr._K, fill_value=-0.1)
-    K0 = -1. * np.array([
-        [1, 1, 0.0004, 2],
-        [1, 0.2, 1, 0.1],
-        [4, 0.1, 1, 3],
-        [0.2, 0.1, 0.3, 0.2],
-    ])
+    # TODO depends of K0!
+    K0 = np.full((4, 4), fill_value=-0.1)
+
+    # K0 = -np.array([
+    #     [1, 1, 0.0004, 2],
+    #     [1, 0.2, 1, 0.1],
+    #     [4, 0.1, 1, 3],
+    #     [0.2, 0.1, 0.3, 0.2],
+    # ])
 
     lqr.train(
         lq,
         method=TrainMethod.GPI,
         policy_eval=PolicyEvaluation.QLEARN_RLS,
-        max_policy_evals=200,
-        max_policy_improves=100,
-        reset_every_n=10,
+        max_policy_evals=500,
+        max_policy_improves=30,
+        reset_every_n=20,
         initial_state=x0,
         initial_policy=K0,
-        optimal_controller=lqr.K,
+        optimal_controller=K_star,
     )
 
-    print(f'P: {lqr.P}')
-    print(f'K: {lqr.K}')
+    # print(f'P: {lqr.P}')
+    # print(f'K: {lqr.K}')
+    #
+    # xs, us, tcost = lqr.simulate_trajectory(lq, x0, t0, tn, n_steps)
+    # print(f'Total Cost: {tcost}')
 
-    xs, us, tcost = lqr.simulate_trajectory(lq, x0, t0, tn, n_steps)
-    print(f'Total Cost: {tcost}')
+    # ------------ Q-learning ------------
+    lqr.train(
+        lq,
+        method=TrainMethod.GPI,
+        policy_eval=PolicyEvaluation.QLEARN,
+        alpha=0.01,
+        max_policy_evals=500,
+        max_policy_improves=30,
+        reset_every_n=20,
+        initial_state=x0,
+        initial_policy=K0,
+        optimal_controller=K_star,
+    )
+
+    # ------------ Q-learning Gauss-Newton ------------
+    lqr.train(
+        lq,
+        method=TrainMethod.GPI,
+        policy_eval=PolicyEvaluation.QLEARN_GN,
+        alpha=1.0,
+        max_policy_evals=500,
+        max_policy_improves=30,
+        reset_every_n=20,
+        initial_state=x0,
+        initial_policy=K0,
+        optimal_controller=K_star,
+    )

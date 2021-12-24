@@ -25,8 +25,8 @@ if __name__ == '__main__':
     x0 = np.ones(shape=(3,))
     t0, tn, n_steps = 0., 1., 20
 
-    # Closed-form
-    print('\nRiccati LQR:')
+    # ------------ Closed-form ------------
+    # print('\nRiccati LQR:')
     lqr = LQR()
 
     lqr.train(
@@ -34,14 +34,14 @@ if __name__ == '__main__':
         method=TrainMethod.ITERATIVE,
         initial_state=x0,
     )
-    print(f'P: {lqr.P}')
-    print(f'K: {lqr.K}')
+    # print(f'P: {lqr.P}')
+    # print(f'K: {lqr.K}')
 
-    xs, us, tcost = lqr.simulate_trajectory(lq, x0, t0, tn, n_steps)
-    print(f'Total Cost: {tcost}')
+    # xs, us, tcost = lqr.simulate_trajectory(lq, x0, t0, tn, n_steps)
+    # print(f'Total Cost: {tcost}')
 
-    # Q-learning
-    print('\nQ-learning LQR:')
+    # ------------ Q-learning RLS ------------
+    # print('\nQ-learning LQR:')
 
     # initial stabilizing controller
     K0 = np.full_like(lqr.K, fill_value=-0.1)
@@ -50,15 +50,43 @@ if __name__ == '__main__':
         lq,
         method=TrainMethod.GPI,
         policy_eval=PolicyEvaluation.QLEARN_RLS,
-        max_policy_evals=100,
+        max_policy_evals=5000,
         max_policy_improves=20,
         reset_every_n=5000,
         initial_state=x0,
         initial_policy=K0,
         optimal_controller=lqr.K,
     )
-    print(f'P: {lqr.P}')
-    print(f'K: {lqr.K}')
+    # print(f'P: {lqr.P}')
+    # print(f'K: {lqr.K}')
+    #
+    # xs, us, tcost = lqr.simulate_trajectory(lq, x0, t0, tn, n_steps)
+    # print(f'Total Cost: {tcost}')
 
-    xs, us, tcost = lqr.simulate_trajectory(lq, x0, t0, tn, n_steps)
-    print(f'Total Cost: {tcost}')
+    # ------------ Q-learning ------------
+    lqr.train(
+        lq,
+        method=TrainMethod.GPI,
+        policy_eval=PolicyEvaluation.QLEARN,
+        alpha=0.01,
+        max_policy_evals=5000,
+        max_policy_improves=30,
+        reset_every_n=5000,
+        initial_state=x0,
+        initial_policy=K0,
+        optimal_controller=lqr.K,
+    )
+
+    # ------------ Q-learning Gauss-Newton ------------
+    lqr.train(
+        lq,
+        method=TrainMethod.GPI,
+        policy_eval=PolicyEvaluation.QLEARN_GN,
+        alpha=1.0,
+        max_policy_evals=5000,
+        max_policy_improves=30,
+        reset_every_n=5000,
+        initial_state=x0,
+        initial_policy=K0,
+        optimal_controller=lqr.K,
+    )
