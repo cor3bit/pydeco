@@ -4,7 +4,8 @@ from pydeco.problem.env import Env
 from pydeco.types import *
 
 
-class VehiclePlatoon(Env):
+# model from сaiazzo21
+class EVPlatoon(Env):
     def reset(self, initial_state: Tensor, **kwargs) -> Tensor:
         pass
 
@@ -13,6 +14,8 @@ class VehiclePlatoon(Env):
 
     def _reward_fn(self, action: Tensor, **kwargs) -> Scalar:
         pass
+
+
 
 
 class DecoupledVehiclePlatoon():

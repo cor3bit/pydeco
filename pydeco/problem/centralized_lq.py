@@ -51,7 +51,8 @@ class CeLQ(LQ):
             # A_G[i - 1, j - 1] = 1.
 
             # !! count edge for each agent
-            A_G[i - 1, j - 1] = 2. if double_count_rewards else 1.
+            # A_G[i - 1, j - 1] = 2. if double_count_rewards else 1.
+            A_G[i, j] = 2. if double_count_rewards else 1.
 
         D_G = np.diag(np.sum(A_G, axis=1))
         L_G = D_G - A_G

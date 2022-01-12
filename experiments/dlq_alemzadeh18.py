@@ -69,7 +69,7 @@ def run_experiment():
 
     lqr.train(
         lq,
-        method=TrainMethod.ITERATIVE,
+        method=TrainMethod.DARE,
         initial_state=s0,
     )
     # P_star = lqr.P
@@ -78,8 +78,8 @@ def run_experiment():
     print(f'K: {K_star}')
 
     # plotting
-    xs_star, us_star, tcost = lqr.simulate_trajectory(lq, s0, 0, 1, n_steps=n_steps)
-    plot_evolution(xs_star, ts, [0, 5, 10], 'TEST')
+    # xs_star, us_star, tcost = lqr.simulate_trajectory(lq, s0, 0, 1, n_steps=n_steps)
+    # plot_evolution(xs_star, ts, [0, 5, 10], 'TEST')
 
     # -------------- solve DISTRIBUTED --------------
     ma_env = MultiAgentLQ(
@@ -108,21 +108,31 @@ def run_experiment():
 
     ma_lqr.train(
         ma_env,
-        gamma,
-        eps,
-        max_policy_evals,
-        max_policy_improves,
-        reset_every_n,
-        initial_states,
-        sa_k_star,
-        initial_state_fn=initial_state_fn,
+        method=TrainMethod.DARE,
+        gamma=gamma,
     )
 
+    K_sim = ma_lqr._reconstruct_full_K(ma_env)
+    print(K_sim)
+
+    a=1
+    # ma_lqr.train(
+    #     ma_env,
+    #     gamma,
+    #     eps,
+    #     max_policy_evals,
+    #     max_policy_improves,
+    #     reset_every_n,
+    #     initial_states,
+    #     sa_k_star,
+    #     initial_state_fn=initial_state_fn,
+    # )
+
     # plotting
-    xs_star, us_star, tcost = ma_lqr.simulate_trajectory(
-        ma_env, initial_states, 0, 1, n_steps=n_steps,
-    )
-    plot_evolution(xs_star, ts, [0, 5, 10], 'TEST')
+    # xs_star, us_star, tcost = ma_lqr.simulate_trajectory(
+    #     ma_env, initial_states, 0, 1, n_steps=n_steps,
+    # )
+    # plot_evolution(xs_star, ts, [0, 5, 10], 'TEST')
 
 
 def initial_state_fn():
@@ -141,8 +151,7 @@ def initial_state_fn():
     # vertical speed, in m/sec
     x5 = np.random.exponential(scale=0.1, size=1).item()
 
-    return np.array([x1, x2, x3, x4, x5,])
-
+    return np.array([x1, x2, x3, x4, x5, ])
 
 
 def problem_setup():

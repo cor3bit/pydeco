@@ -38,17 +38,17 @@ def run_experiment():
 
     K0 = np.full_like(lqr.K, fill_value=-0.1)
 
-    # lqr.train(
-    #     lq,
-    #     method=TrainMethod.GPI,
-    #     policy_eval=PolicyEvaluation.QLEARN_RLS,
-    #     max_policy_evals=1000,
-    #     max_policy_improves=30,
-    #     reset_every_n=10,
-    #     initial_state=x0,
-    #     initial_policy=K0,
-    #     optimal_controller=K_star,
-    # )
+    lqr.train(
+        lq,
+        method=TrainMethod.GPI,
+        policy_eval=PolicyEvaluation.QLEARN_RLS,
+        max_policy_evals=1000,
+        max_policy_improves=30,
+        reset_every_n=10,
+        initial_state=x0,
+        initial_policy=K0,
+        optimal_controller=K_star,
+    )
 
     # ------------ Q-learning ------------
     # lqr.train(
@@ -69,9 +69,9 @@ def run_experiment():
         lq,
         method=TrainMethod.GPI,
         policy_eval=PolicyEvaluation.QLEARN_GN,
-        alpha=.05,
+        alpha=0.1,
         max_policy_evals=1000,
-        max_policy_improves=100,
+        max_policy_improves=20,
         reset_every_n=5,
         initial_state=x0,
         initial_policy=K0,

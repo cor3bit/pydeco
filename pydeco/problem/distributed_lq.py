@@ -230,7 +230,7 @@ class LocalLQ(LQ):
     #     state_info = np.concatenate((self.get_state(), *information))
     #     return self._A @ state_info + self._B @ action
 
-    def get_full_model(self):
+    def get_model(self):
         n_agents = 1 + self.n_neighbors
         I_n = np.eye(n_agents)
         A_ = np.kron(I_n, self._A)

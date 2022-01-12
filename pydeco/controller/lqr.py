@@ -38,6 +38,9 @@ class LQR(Agent):
         self._H = None
         # Policy matrix (n_s, n_a)
         self._K = None
+        # FA params
+        self._weights = None
+        self._covar = None
 
     @property
     def K(self):
@@ -304,6 +307,66 @@ class LQR(Agent):
         self.K = K
         self._calibrated = True
 
+    def _train_gpi(
+            self,
+            env: LQ,
+            policy_eval: str,
+            gamma: Scalar,
+            eps: Scalar,
+            max_policy_evals: int,
+            max_policy_improves: int,
+            reset_every_n: int,
+            initial_state: Tensor,
+            initial_policy: Tensor,
+            alpha: Scalar,
+            **kwargs
+    ):
+        # clear previous results
+        self._cache.clear()
+
+        # initialize params for GPI
+        self._init_gpi(env, initial_state, initial_policy)
+
+        # logging
+        self._log_header()
+
+        # run GPI loop
+        pi_improve_iter = 1
+        pi_improve_converged = False
+
+        while (not pi_improve_converged) and (not pi_improve_iter > max_policy_improves):
+            # policy evaluation - given K, compute H
+            self._evaluate_policy(
+                env,
+                policy_eval,
+                gamma=gamma,
+                eps=eps,
+                max_policy_evals=max_policy_evals,
+                reset_every_n=reset_every_n,
+                gpi_iter=pi_improve_iter,
+                initial_state=initial_state,
+                alpha=alpha,
+            )
+
+            # policy improvement - given H_K, re-compute K
+            pi_improve_converged, k_diff = self._improve_policy(pi_improve_iter, eps)
+
+            # diff with K* (if given)
+            if self._K_star is not None:
+                opt_diff = np.max(np.abs(self._K_star - self._K))
+                self._save_param(pi_improve_iter, 'opt_diff', opt_diff)
+
+            # logging
+            self._log_step(pi_improve_iter)
+
+            # update counter
+            pi_improve_iter += 1
+
+        # save output after training
+        # Note: recent P, H are saved during policy eval
+        # Note: recent K is saved during policy improve
+        self._calibrated = True
+
     def _init_gpi(
             self,
             env: LQ,
@@ -333,102 +396,37 @@ class LQR(Agent):
         # weights of the FA
         self._weights = np.zeros((p, 1))
 
-    def _train_gpi(
+    def _reset_covar(self, beta: Scalar):
+        self._covar = np.eye(self._p) * beta
+
+    def _evaluate_policy(
             self,
             env: LQ,
             policy_eval: str,
             gamma: Scalar,
             eps: Scalar,
             max_policy_evals: int,
-            max_policy_improves: int,
-            reset_every_n: int,
-            initial_state: Tensor,
-            initial_policy: Tensor,
-            alpha: Scalar,
-            **kwargs
-    ):
-        # clear previous results
-        self._cache.clear()
-
-        # initialize params for GPI
-        self._init_gpi(env, initial_state, initial_policy)
-
-        # fix policy eval function
-        policy_eval_fn = None
-        match policy_eval:
-            case PolicyEvaluation.QLEARN | PolicyEvaluation.QLEARN_GN:
-                policy_eval_fn = self._policy_eval_qlearn
-            case PolicyEvaluation.QLEARN_RLS:
-                policy_eval_fn = self._policy_eval_qlearn_rls
-            case _:
-                raise ValueError(f'Policy Eval {policy_eval} not supported.')
-
-        gn_approx = policy_eval == PolicyEvaluation.QLEARN_GN
-
-        # logging
-        self._log_header()
-
-        # run GPI loop
-        pi_improve_iter = 1
-        pi_improve_converged = False
-
-        while (not pi_improve_converged) and (not pi_improve_iter > max_policy_improves):
-            # policy evaluation - given K, compute H
-            policy_eval_fn(
-                env,
-                gamma=gamma,
-                eps=eps,
-                max_policy_evals=max_policy_evals,
-                reset_every_n=reset_every_n,
-                gpi_iter=pi_improve_iter,
-                initial_state=initial_state,
-                alpha=alpha,
-                gn_approx=gn_approx,
-            )
-
-            # policy improvement - given H_K, re-compute K
-            H_uk = self._H[self._n_s:, :self._n_s]
-            H_uu = self._H[self._n_s:, self._n_s:]
-
-            # argmax policy
-            K_new = -np.linalg.inv(H_uu) @ H_uk
-
-            # convergence
-            k_diff = np.max(np.abs(K_new - self._K))
-            self._save_param(pi_improve_iter, 'K_max_diff', k_diff)
-            pi_improve_converged = k_diff < eps
-            self._K = K_new
-
-            # diff with K* (if given)
-            if self._K_star is not None:
-                opt_diff = np.max(np.abs(self._K_star - self._K))
-                self._save_param(pi_improve_iter, 'opt_diff', opt_diff)
-
-            # logging
-            self._log_step(pi_improve_iter)
-
-            # update counter
-            pi_improve_iter += 1
-
-        # save output after training
-        # Note: recent P, H are saved during policy eval
-        # Note: recent K is saved during policy improve
-        self._calibrated = True
-
-    def _policy_eval_qlearn_rls(
-            self,
-            env: LQ,
-            gamma: Scalar,
-            eps: Scalar,
-            max_policy_evals: int,
             reset_every_n: int,
             gpi_iter: int,
             initial_state: Tensor,
+            alpha: Scalar,
             beta: Scalar = 1.,
             **kwargs
     ):
-        # reset covariance matrix
-        G_k = np.eye(self._p) * beta
+        # reset covariance matrix in case RLS
+        if policy_eval == PolicyEvaluation.QLEARN_RLS:
+            self._reset_covar(beta)
+
+        # fix a weight update function
+        match policy_eval:
+            case PolicyEvaluation.QLEARN:
+                weight_update_fn = self._update_weights_std
+            case PolicyEvaluation.QLEARN_GN:
+                weight_update_fn = self._update_weights_gn
+            case PolicyEvaluation.QLEARN_RLS:
+                weight_update_fn = self._update_weights_rls
+            case _:
+                raise ValueError(f'Policy Eval {policy_eval} not supported.')
 
         # s
         curr_state = env.get_state()
@@ -451,17 +449,9 @@ class LQR(Agent):
             f_x = self._build_feature_vector(self._p, curr_state, curr_action)
             f_x_next = self._build_feature_vector(self._p, next_state, next_action)
 
-            # update weights w/ RLS
-            phi = f_x - gamma * f_x_next
-
-            num = G_k @ phi * (curr_reward - phi.T @ self._weights)
-            den = 1 + phi.T @ G_k @ phi
-            w_adj = num / den
-            self._weights += w_adj
-
-            num2 = G_k @ phi @ phi.T @ G_k
-            G_adj = num2 / den
-            G_k -= G_adj
+            # update weights
+            w_adj = weight_update_fn(f_x=f_x, f_x_next=f_x_next, gamma=gamma,
+                                     curr_reward=curr_reward, alpha=alpha)
 
             # convergence
             w_adj_diff = np.max(np.abs(w_adj))
@@ -484,66 +474,77 @@ class LQR(Agent):
         self._H = self._convert_to_parameter_matrix(self._weights, self._n_q)
         self._P = self._H[:self._n_s, :self._n_s]
 
-    def _policy_eval_qlearn(
+    def _update_weights_rls(
             self,
-            env: LQ,
+            f_x: Tensor,
+            f_x_next: Tensor,
             gamma: Scalar,
-            eps: Scalar,
-            max_policy_evals: int,
-            reset_every_n: int,
-            gpi_iter: int,
-            initial_state: Tensor,
-            alpha: Scalar,
-            gn_approx: bool,
+            curr_reward: Scalar,
             **kwargs
-    ):
-        # s
-        curr_state = env.get_state()
+    ) -> Tensor:
+        phi = f_x - gamma * f_x_next
 
-        # policy eval loop
-        pi_eval_iter = 0
-        pi_eval_converged = False
+        num = self._covar @ phi * (curr_reward - phi.T @ self._weights)
+        den = 1 + phi.T @ self._covar @ phi
+        w_adj = num / den
+        self._weights += w_adj
 
-        while not pi_eval_converged and pi_eval_iter < max_policy_evals:
-            # a
-            curr_action = self.act(curr_state, policy_type=PolicyType.EPS_GREEDY)
+        num2 = self._covar @ phi @ phi.T @ self._covar
+        covar_adj = num2 / den
+        self._covar -= covar_adj
 
-            # r, s'
-            curr_reward, next_state = env.step(curr_action)
+        return w_adj
 
-            # max_a'
-            next_action = self.act(next_state, policy_type=PolicyType.GREEDY)
+    def _update_weights_std(
+            self,
+            f_x: Tensor,
+            f_x_next: Tensor,
+            gamma: Scalar,
+            curr_reward: Scalar,
+            alpha: Tensor,
+            **kwargs
+    ) -> Tensor:
+        td_err = curr_reward + gamma * self._q_value(f_x_next, self._weights) - self._q_value(f_x, self._weights)
+        w_adj = alpha * td_err * f_x
+        self._weights += w_adj
 
-            # features from (s,a)
-            f_x = self._build_feature_vector(self._p, curr_state, curr_action)
-            f_x_next = self._build_feature_vector(self._p, next_state, next_action)
+        return w_adj
 
-            # update weights w/ Q-learning
-            td_err = curr_reward + gamma * self._q_value(f_x_next, self._weights) - self._q_value(f_x, self._weights)
-            gn_adj = 1. / (f_x.T @ f_x) if gn_approx else 1.
-            w_adj = alpha * td_err * f_x * gn_adj
-            self._weights += w_adj
+    def _update_weights_gn(
+            self,
+            f_x: Tensor,
+            f_x_next: Tensor,
+            gamma: Scalar,
+            curr_reward: Scalar,
+            alpha: Tensor,
+            **kwargs
+    ) -> Tensor:
+        td_err = curr_reward + gamma * self._q_value(f_x_next, self._weights) - self._q_value(f_x, self._weights)
+        gn_adj = 1. / (f_x.T @ f_x)
+        w_adj = alpha * td_err * f_x * gn_adj
+        self._weights += w_adj
 
-            # convergence
-            w_adj_diff = np.max(np.abs(w_adj))
-            pi_eval_converged = w_adj_diff < eps
+        return w_adj
 
-            # update current state or reset
-            if pi_eval_iter % reset_every_n == 0:
-                curr_state = env.reset(initial_state)
-            else:
-                curr_state = next_state
+    def _improve_policy(
+            self,
+            pi_improve_iter: int,
+            eps: Scalar,
+    ) -> Tuple[bool, Scalar]:
+        # policy improvement - given H_K, re-compute K
+        H_uk = self._H[self._n_s:, :self._n_s]
+        H_uu = self._H[self._n_s:, self._n_s:]
 
-            # update counter
-            pi_eval_iter += 1
+        # argmax policy
+        K_new = -np.linalg.inv(H_uu) @ H_uk
 
-        # logging
-        self._save_param(gpi_iter, 'n_evals', pi_eval_iter)
-        self._save_param(gpi_iter, 'eval_conv', pi_eval_converged)
+        # convergence
+        k_diff = np.max(np.abs(K_new - self._K))
+        self._save_param(pi_improve_iter, 'K_max_diff', k_diff)
+        pi_improve_converged = k_diff < eps
+        self._K = K_new
 
-        # save output of policy eval
-        self._H = self._convert_to_parameter_matrix(self._weights, self._n_q)
-        self._P = self._H[:self._n_s, :self._n_s]
+        return pi_improve_converged, k_diff
 
     def _q_value(
             self,
