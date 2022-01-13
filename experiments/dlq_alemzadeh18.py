@@ -73,13 +73,13 @@ def run_experiment():
         initial_state=s0,
     )
     # P_star = lqr.P
-    K_star = lqr.K
+    K_star = np.array(lqr.K)
     # print(f'P: {P_star}')
-    print(f'K: {K_star}')
+    # print(f'K: {K_star}')
 
     # plotting
-    # xs_star, us_star, tcost = lqr.simulate_trajectory(lq, s0, 0, 1, n_steps=n_steps)
-    # plot_evolution(xs_star, ts, [0, 5, 10], 'TEST')
+    xs_star, us_star, tcost = lqr.simulate_trajectory(lq, s0, 0, 1, n_steps=n_steps)
+    plot_evolution(xs_star, ts, [0, 5, 10], 'TEST')
 
     # -------------- solve DISTRIBUTED --------------
     ma_env = MultiAgentLQ(
@@ -91,48 +91,51 @@ def run_experiment():
     initial_states = [s0_0, s0_1, s0_2]
     gamma = 1.0
     eps = 1e-7
-    max_policy_evals = 100
-    max_policy_improves = 20
+    max_policy_evals = 5000
+    max_policy_improves = 30
     reset_every_n = 1
 
     # TODO try other initial policies
-    sa_k_star = np.array(
-        [[0., 0.06966258, -0.00066418, -0.03478692, 0.29336068, ],
-         [0., 0.05054217, 0.08991914, -0.08479701, 0.00070446, ],
-         [0., 0.20414527, 0.00281244, -0.60267623, 0.16335665, ], ]
-    )
+    # sa_k_star = np.array(
+    #     [[0., 0.06966258, -0.00066418, -0.03478692, 0.29336068, ],
+    #      [0., 0.05054217, 0.08991914, -0.08479701, 0.00070446, ],
+    #      [0., 0.20414527, 0.00281244, -0.60267623, 0.16335665, ], ]
+    # )
 
-    # sa_k_star = np.full((3, 5), fill_value=.01)
+    sa_k_star = -np.full((3, 5), fill_value=.01)
 
     # initial_policies = [sa_k_star, sa_k_star, sa_k_star]
 
-    ma_lqr.train(
-        ma_env,
-        method=TrainMethod.DARE,
-        gamma=gamma,
-    )
-
-    K_sim = ma_lqr._reconstruct_full_K(ma_env)
-    print(K_sim)
-
-    a=1
     # ma_lqr.train(
     #     ma_env,
-    #     gamma,
-    #     eps,
-    #     max_policy_evals,
-    #     max_policy_improves,
-    #     reset_every_n,
-    #     initial_states,
-    #     sa_k_star,
-    #     initial_state_fn=initial_state_fn,
+    #     method=TrainMethod.DARE,
+    #     gamma=gamma,
     # )
+    #
+    # K_sim = ma_lqr._reconstruct_full_K(ma_env)
+    # print(K_sim)
+
+    ma_lqr.train(
+        ma_env,
+        method=TrainMethod.GPI,
+        policy_eval=PolicyEvaluation.QLEARN_RLS,
+        gamma=gamma,
+        eps=eps,
+        alpha=0.05,
+        max_policy_evals=max_policy_evals,
+        max_policy_improves=max_policy_improves,
+        reset_every_n=reset_every_n,
+        initial_states=initial_states,
+        initial_state_fn=initial_state_fn,
+        sa_initial_policy=sa_k_star,
+        optimal_controller=K_star,
+    )
 
     # plotting
-    # xs_star, us_star, tcost = ma_lqr.simulate_trajectory(
-    #     ma_env, initial_states, 0, 1, n_steps=n_steps,
-    # )
-    # plot_evolution(xs_star, ts, [0, 5, 10], 'TEST')
+    xs_star, us_star, tcost = ma_lqr.simulate_trajectory(
+        ma_env, initial_states, 0, 1, n_steps=n_steps,
+    )
+    plot_evolution(xs_star, ts, [0, 5, 10], 'TEST')
 
 
 def initial_state_fn():

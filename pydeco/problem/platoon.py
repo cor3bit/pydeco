@@ -1,11 +1,39 @@
 import numpy as np
 
-from pydeco.problem.env import Env
+from pydeco.problem.env import Env, MultiAgentEnv
 from pydeco.types import *
 
 
 # model from сaiazzo21
-class EVPlatoon(Env):
+class EVPlatoon(MultiAgentEnv):
+    def __init__(
+            self,
+            n_agents: int,
+            communication_map: dict[int, Sequence[int]],
+            state_reward_matrix: Tensor,
+            action_reward_matrix: Tensor,
+    ):
+        self._n_agents = n_agents
+
+        # create envs
+        self._env_map = {
+            i: EVehicle(
+                communication_map[i], coupled_dynamics, coupled_rewards,
+                system_matrix, control_matrix, state_reward_matrix, action_reward_matrix,
+            ) for i in range(n_agents)
+        }
+
+    def step(self, agent_id: int, action: Tensor, **kwargs) -> Sequence[Tuple[Scalar, Tensor]]:
+        pass
+
+    def reset(self, initial_states: Tensors, **kwargs) -> Tensors:
+        pass
+
+
+class EVehicle(Env):
+    def __init__(self):
+        pass
+
     def reset(self, initial_state: Tensor, **kwargs) -> Tensor:
         pass
 
@@ -14,8 +42,6 @@ class EVPlatoon(Env):
 
     def _reward_fn(self, action: Tensor, **kwargs) -> Scalar:
         pass
-
-
 
 
 class DecoupledVehiclePlatoon():

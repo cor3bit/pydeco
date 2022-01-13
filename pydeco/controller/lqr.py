@@ -97,6 +97,9 @@ class LQR(Agent):
 
         self._logger.info(f'Calibrating controller.')
 
+        # clear previous results
+        self._cache.clear()
+
         # optimal policy for logging
         self._K_star = optimal_controller
 
@@ -321,9 +324,6 @@ class LQR(Agent):
             alpha: Scalar,
             **kwargs
     ):
-        # clear previous results
-        self._cache.clear()
-
         # initialize params for GPI
         self._init_gpi(env, initial_state, initial_policy)
 
@@ -432,10 +432,10 @@ class LQR(Agent):
         curr_state = env.get_state()
 
         # policy eval loop
-        pi_eval_iter = 0
+        pi_eval_iter = 1
         pi_eval_converged = False
 
-        while not pi_eval_converged and pi_eval_iter < max_policy_evals:
+        while (not pi_eval_converged) and (not pi_eval_iter > max_policy_evals):
             # a
             curr_action = self.act(curr_state, policy_type=PolicyType.EPS_GREEDY)
 
@@ -467,12 +467,31 @@ class LQR(Agent):
             pi_eval_iter += 1
 
         # logging
-        self._save_param(gpi_iter, 'n_evals', pi_eval_iter)
+        self._save_param(gpi_iter, 'n_evals', pi_eval_iter - 1)
         self._save_param(gpi_iter, 'eval_conv', pi_eval_converged)
 
-        # save output of policy eval
-        self._H = self._convert_to_parameter_matrix(self._weights, self._n_q)
-        self._P = self._H[:self._n_s, :self._n_s]
+    def _update_weights(
+            self,
+            policy_eval: str,
+            f_x: Tensor,
+            f_x_next: Tensor,
+            gamma: Scalar,
+            curr_reward: Scalar,
+            alpha: Tensor,
+            **kwargs
+    ) -> Tensor:
+        match policy_eval:
+            case PolicyEvaluation.QLEARN:
+                return self._update_weights_std(
+                    f_x=f_x, f_x_next=f_x_next, gamma=gamma, curr_reward=curr_reward, alpha=alpha)
+            case PolicyEvaluation.QLEARN_GN:
+                return self._update_weights_gn(
+                    f_x=f_x, f_x_next=f_x_next, gamma=gamma, curr_reward=curr_reward, alpha=alpha)
+            case PolicyEvaluation.QLEARN_RLS:
+                return self._update_weights_rls(
+                    f_x=f_x, f_x_next=f_x_next, gamma=gamma, curr_reward=curr_reward, alpha=alpha)
+            case _:
+                raise ValueError(f'Policy Eval {policy_eval} not supported.')
 
     def _update_weights_rls(
             self,
@@ -531,6 +550,9 @@ class LQR(Agent):
             pi_improve_iter: int,
             eps: Scalar,
     ) -> Tuple[bool, Scalar]:
+        # compute H from weights if not saved
+        self._H = self._convert_to_parameter_matrix(self._weights, self._n_q)
+
         # policy improvement - given H_K, re-compute K
         H_uk = self._H[self._n_s:, :self._n_s]
         H_uu = self._H[self._n_s:, self._n_s:]

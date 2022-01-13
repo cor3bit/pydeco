@@ -53,10 +53,10 @@ def run_experiment():
     print(f'K: {K_star_celq}')
 
     # plotting
-    # n_steps = 5
-    # ts = np.linspace(0, 1, num=n_steps + 1)
-    # xs_star, us_star, tcost = lqr.simulate_trajectory(lq, s0, 0, 1, n_steps=n_steps)
-    # plot_evolution(xs_star, ts, [0, 1, 2], 'TEST')
+    n_steps = 5
+    ts = np.linspace(0, 1, num=n_steps + 1)
+    xs_star, us_star, tcost = celqr.simulate_trajectory(celq, s0, 0, 1, n_steps=n_steps)
+    plot_evolution(xs_star, ts, [0, 1, 2], 'TEST')
 
     # -------------- solve DISTRIBUTED --------------
     print('\nD-LQ:')
@@ -70,9 +70,9 @@ def run_experiment():
     initial_states = [s0_0, s0_1, s0_2]
     gamma = 1.0
     eps = 1e-6
-    max_policy_evals = 100
+    max_policy_evals = 200
     max_policy_improves = 20
-    reset_every_n = 100
+    reset_every_n = 5
 
     sa_k_star = np.full((1, 1), fill_value=-.01)
 
@@ -86,20 +86,16 @@ def run_experiment():
 
     ma_lqr.train(
         ma_env,
-
         method=TrainMethod.GPI,
-        policy_eval=PolicyEvaluation.QLEARN_RLS,
-
+        policy_eval=PolicyEvaluation.QLEARN_GN,
         gamma=gamma,
-
         eps=eps,
+        alpha=0.1,
         max_policy_evals=max_policy_evals,
         max_policy_improves=max_policy_improves,
         reset_every_n=reset_every_n,
-
         initial_states=initial_states,
         sa_initial_policy=sa_k_star,
-
         optimal_controller=K_star_celq,
     )
 
@@ -109,10 +105,10 @@ def run_experiment():
     print(f'K_sim: {K_sim}')
 
     # plotting
-    # xs_sim, us_sim, tcost_sim = ma_lqr.simulate_trajectory(
-    #     ma_env, initial_states, 0, 1, n_steps=n_steps,
-    # )
-    # plot_evolution(xs_sim, ts, [0, 1, 2], 'TEST')
+    xs_sim, us_sim, tcost_sim = ma_lqr.simulate_trajectory(
+        ma_env, initial_states, 0, 1, n_steps=n_steps,
+    )
+    plot_evolution(xs_sim, ts, [0, 1, 2], 'TEST')
 
     # ------ get centralized P from centralized K ------
     # lqr2 = LQR()
