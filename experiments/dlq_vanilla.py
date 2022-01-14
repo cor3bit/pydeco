@@ -47,6 +47,7 @@ def run_experiment():
         method=TrainMethod.DARE,
         initial_state=s0,
     )
+
     P_star_celq = celqr.P
     K_star_celq = celqr.K
     print(f'P: {P_star_celq}')
@@ -71,10 +72,10 @@ def run_experiment():
     gamma = 1.0
     eps = 1e-6
     max_policy_evals = 200
-    max_policy_improves = 20
+    max_policy_improves = 200
     reset_every_n = 5
 
-    sa_k_star = np.full((1, 1), fill_value=-.01)
+    sa_k_star = np.full((1, 1), fill_value=-1)
 
     # initial_policies = [sa_k_star, sa_k_star, sa_k_star]
 
@@ -90,7 +91,7 @@ def run_experiment():
         policy_eval=PolicyEvaluation.QLEARN_GN,
         gamma=gamma,
         eps=eps,
-        alpha=0.1,
+        alpha=0.0001,
         max_policy_evals=max_policy_evals,
         max_policy_improves=max_policy_improves,
         reset_every_n=reset_every_n,

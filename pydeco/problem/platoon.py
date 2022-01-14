@@ -16,6 +16,7 @@ class EVPlatoon(MultiAgentEnv):
         self._n_agents = n_agents
 
         # create envs
+        # TODO
         self._env_map = {
             i: EVehicle(
                 communication_map[i], coupled_dynamics, coupled_rewards,
@@ -24,20 +25,43 @@ class EVPlatoon(MultiAgentEnv):
         }
 
     def step(self, agent_id: int, action: Tensor, **kwargs) -> Sequence[Tuple[Scalar, Tensor]]:
-        pass
+        raise NotImplementedError
 
     def reset(self, initial_states: Tensors, **kwargs) -> Tensors:
-        pass
+        # TODO init individual states + cache
+        raise NotImplementedError
 
 
 class EVehicle(Env):
-    def __init__(self):
-        pass
+    def __init__(self, h=0.8):
+
+
+        self._h = h
 
     def reset(self, initial_state: Tensor, **kwargs) -> Tensor:
         pass
 
+
+    def _ev_model(
+            self,
+            u,
+    ):
+        p, v = self._state
+
+        part1 = u * nu / R / m
+
+        part2 = g * np.sin(theta)
+
+        part3 = g * np.cos(theta) * Cr (c1 * v + c2) * 1e-3
+
+        part4 = 0.5 * rho * Cd * d *A *v / m
+
+        v_next = part1 - part2 - part3 - part4
+
+        return [v, v_next]
+
     def _transition_fn(self, action: Tensor, **kwargs) -> Tensor:
+        # TODO Euler step
         pass
 
     def _reward_fn(self, action: Tensor, **kwargs) -> Scalar:

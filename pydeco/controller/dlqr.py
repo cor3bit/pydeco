@@ -7,6 +7,7 @@ from tqdm import tqdm
 
 from pydeco.types import *
 from pydeco.constants import *
+from pydeco.problem.env import MultiAgentEnv
 from pydeco.problem.distributed_lq import LocalLQ, MultiAgentLQ
 from pydeco.controller.lqr import LQR
 from pydeco.controller.agent import MultiAgent
@@ -31,7 +32,7 @@ class MultiAgentLQR(MultiAgent):
 
     def train(
             self,
-            ma_env: MultiAgentLQ,
+            ma_env: MultiAgentEnv,
             method: str,
             policy_eval: str = PolicyEvaluation.QLEARN_RLS,
             gamma: Scalar = 1.,
@@ -87,7 +88,7 @@ class MultiAgentLQR(MultiAgent):
 
     def simulate_trajectory(
             self,
-            ma_env: MultiAgentLQ,
+            ma_env: MultiAgentEnv,
             initial_states: Tensors,
             t0: float,
             tn: float,
@@ -143,7 +144,7 @@ class MultiAgentLQR(MultiAgent):
 
     def _train_analytical_dare(
             self,
-            ma_env: MultiAgentLQ,
+            ma_env: MultiAgentEnv,
             gamma: Scalar,
             **kwargs
     ):
@@ -155,7 +156,7 @@ class MultiAgentLQR(MultiAgent):
 
     def _train_gpi(
             self,
-            ma_env: MultiAgentLQ,
+            ma_env: MultiAgentEnv,
             policy_eval: str,
             gamma: Scalar,
             eps: Scalar,
@@ -333,7 +334,7 @@ class MultiAgentLQR(MultiAgent):
 
         self._logger.info(msg1)
 
-    def _reconstruct_full_K(self, ma_env: MultiAgentLQ):
+    def _reconstruct_full_K(self, ma_env: MultiAgentEnv):
         agent_policies = []
 
         n_agents = len(self._agent_map)

@@ -539,8 +539,13 @@ class LQR(Agent):
             **kwargs
     ) -> Tensor:
         td_err = curr_reward + gamma * self._q_value(f_x_next, self._weights) - self._q_value(f_x, self._weights)
-        gn_adj = 1. / (f_x.T @ f_x)
-        w_adj = alpha * td_err * f_x * gn_adj
+
+        # TODO check
+        # gn_adj = 1. / (f_x.T @ f_x)
+        # w_adj = alpha * td_err * f_x * gn_adj
+        gn_adj = np.linalg.pinv(f_x @ f_x.T)
+        w_adj = alpha * td_err * gn_adj @ f_x
+        # w_adj = alpha * td_err * np.linalg.pinv(f_x.T @ f_x) @ f_x
         self._weights += w_adj
 
         return w_adj
