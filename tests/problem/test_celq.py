@@ -12,7 +12,7 @@ def test_celq(alemzadeh18):
     A, B, Q, R = alemzadeh18
 
     n_agents = 3
-    edges = [(1, 2), (2, 1), (2, 3), (3, 2)]
+    edges = [(0, 1), (1, 0), (1, 2), (2, 1)]
     neighbors = {0: [1, ], 1: [0, 2], 2: [1, ]}
 
     celq = CeLQ(n_agents, edges, True, A, B, Q, R)

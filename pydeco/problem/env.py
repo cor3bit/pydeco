@@ -48,6 +48,13 @@ class Env(ABC):
 class MultiAgentEnv(ABC):
     _env_map = None
 
+    # local cache
+    _n_agents = None
+    _curr_states = None
+    _next_states = None
+    _curr_rewards = None
+    _curr_actions = None
+
     def reset(
             self,
             initial_states: Tensors,
@@ -63,8 +70,65 @@ class MultiAgentEnv(ABC):
     ) -> Sequence[Tuple[Scalar, Tensor]]:
         raise NotImplementedError
 
-    def get_state(self, agent_id: int):
-        raise NotImplementedError
+    def roll_states(self):
+        self._curr_states = self._next_states
+        self._next_states = {i: None for i in range(self._n_agents)}
 
-    def get_info(self, agent_id: int):
-        raise NotImplementedError
+    def get_state(
+            self,
+            agent_id: int,
+    ) -> Tensor:
+        return self._curr_states[agent_id]
+
+    def get_next_state(
+            self,
+            agent_id: int,
+    ) -> Tensor:
+        return self._next_states[agent_id]
+
+    def get_action(
+            self,
+            agent_id: int,
+    ) -> Tensor:
+        return self._curr_actions[agent_id]
+
+    def get_info(
+            self,
+            agent_id: int,
+    ) -> Tensors:
+        neighbors = self._env_map[agent_id].neighbors
+        return [self.get_state(neighbor_id) for neighbor_id in neighbors]
+
+    def get_next_info(
+            self,
+            agent_id: int,
+    ) -> Tensors:
+        neighbors = self._env_map[agent_id].neighbors
+        return [self.get_next_state(neighbor_id) for neighbor_id in neighbors]
+
+    def get_reward(
+            self,
+            agent_id: int,
+    ) -> Scalar:
+        return self._curr_rewards[agent_id]
+
+    def set_reward(
+            self,
+            agent_id: int,
+            reward: Scalar,
+    ):
+        self._curr_rewards[agent_id] = reward
+
+    def set_action(
+            self,
+            agent_id: int,
+            action: Tensor,
+    ):
+        self._curr_actions[agent_id] = action
+
+    def set_next_state(
+            self,
+            agent_id: int,
+            next_state: Tensor,
+    ):
+        self._next_states[agent_id] = next_state

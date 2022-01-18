@@ -8,13 +8,19 @@ def read(fname):
 
 setuptools.setup(
     name='PyDeco',
-    version='0.0.1',
+    version='0.0.2',
     author='Nick Korbit',
-    description='Playground for Decentralized and Distributed Control Algorithms.',
+    description='Experiments in Decentralized and Distributed Control Algorithms.',
     long_description=read('README.md'),
-    packages=setuptools.find_packages(exclude=['artifacts', 'examples', 'experiments', 'tests']),
+    packages=setuptools.find_packages(exclude=[
+        'artifacts',
+        'examples',
+        'experiments',
+        'tests',
+    ]),
     install_requires=[
         'numpy',
+        'scipy',
         'matplotlib',
         'seaborn',
     ],

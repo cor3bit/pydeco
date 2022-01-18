@@ -62,13 +62,16 @@ def run_experiment():
         A, B, Q, R,
     )
 
-    lq_generic = LQ(*local_lq.get_full_model(), check_dimensions=False)
+    # lq_generic = LQ(*local_lq.get_full_model(), check_dimensions=False)
 
     lqr = LQR()
 
-    lqr.train(lq_generic, method=TrainMethod.ITERATIVE, max_iter=100)
-    print(f'P: {lqr.P}')
-    print(f'K: {lqr.K}')
+    lqr.train(local_lq, method=TrainMethod.ITERATIVE, max_iter=100)
+    # print(f'P: {lqr.P}')
+    # print(f'K: {lqr.K}')
+
+    K = lqr.K
+    a = 1
 
     # n_steps = 20
     # ts = np.linspace(0, 1, num=n_steps + 1)

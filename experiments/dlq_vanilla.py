@@ -38,59 +38,72 @@ def run_experiment():
     # -------------- solve CENTRALIZED --------------
     print('\nCeLQ:')
 
-    lq = CeLQ(n_agents, communication_links, double_count_rewards, A, B, Q, R)
+    celq = CeLQ(n_agents, communication_links, double_count_rewards, A, B, Q, R)
 
-    lqr = LQR()
+    celqr = LQR()
 
-    lqr.train(
-        lq,
-        method=TrainMethod.ANALYTICAL,
+    celqr.train(
+        celq,
+        method=TrainMethod.DARE,
         initial_state=s0,
     )
-    P_star = lqr.P
-    K_star = lqr.K
-    print(f'P: {P_star}')
-    print(f'K: {K_star}')
+
+    P_star_celq = celqr.P
+    K_star_celq = celqr.K
+    print(f'P: {P_star_celq}')
+    print(f'K: {K_star_celq}')
 
     # plotting
     n_steps = 5
     ts = np.linspace(0, 1, num=n_steps + 1)
-    xs_star, us_star, tcost = lqr.simulate_trajectory(lq, s0, 0, 1, n_steps=n_steps)
+    xs_star, us_star, tcost = celqr.simulate_trajectory(celq, s0, 0, 1, n_steps=n_steps)
     plot_evolution(xs_star, ts, [0, 1, 2], 'TEST')
 
     # -------------- solve DISTRIBUTED --------------
-    ma_env = MultiAgentLQ(
-        n_agents, communication_map, coupled_dynamics, coupled_rewards, A, B, Q, R)
+    print('\nD-LQ:')
 
-    ma_lqr = MultiAgentLQR(n_agents, optimal_controller=K_star)
+    ma_env = MultiAgentLQ(n_agents, communication_map, coupled_dynamics,
+                          coupled_rewards, A, B, Q, R)
+
+    ma_lqr = MultiAgentLQR(n_agents)
 
     # training params
     initial_states = [s0_0, s0_1, s0_2]
     gamma = 1.0
     eps = 1e-6
-    max_policy_evals = 100
-    max_policy_improves = 20
-    reset_every_n = 100
+    max_policy_evals = 200
+    max_policy_improves = 200
+    reset_every_n = 5
 
-    sa_k_star = np.full((1, 1), fill_value=-.01)
+    sa_k_star = np.full((1, 1), fill_value=-1)
 
     # initial_policies = [sa_k_star, sa_k_star, sa_k_star]
 
+    # ma_lqr.train(
+    #     ma_env,
+    #     method=TrainMethod.DARE,
+    #     gamma=gamma,
+    # )
+
     ma_lqr.train(
         ma_env,
-        gamma,
-        eps,
-        max_policy_evals,
-        max_policy_improves,
-        reset_every_n,
-        initial_states,
-        sa_k_star,
+        method=TrainMethod.GPI,
+        policy_eval=PolicyEvaluation.QLEARN_GN,
+        gamma=gamma,
+        eps=eps,
+        alpha=0.0001,
+        max_policy_evals=max_policy_evals,
+        max_policy_improves=max_policy_improves,
+        reset_every_n=reset_every_n,
+        initial_states=initial_states,
+        sa_initial_policy=sa_k_star,
+        optimal_controller=K_star_celq,
     )
 
     # for agent in ma_lqr._agent_map.values():
     #     print(agent.K)
     K_sim = ma_lqr._reconstruct_full_K(ma_env)
-    print(K_sim)
+    print(f'K_sim: {K_sim}')
 
     # plotting
     xs_sim, us_sim, tcost_sim = ma_lqr.simulate_trajectory(
@@ -98,18 +111,21 @@ def run_experiment():
     )
     plot_evolution(xs_sim, ts, [0, 1, 2], 'TEST')
 
-    # ------ initialize LQR from policy
-    lqr2 = LQR()
-    lqr2.K = K_sim
-
-    lqr2._policy_eval_qlearn_rls(
-        lq,
-        max_policy_evals=5000,
-        reset_every_n=reset_every_n,
-        initial_state=s0,
-        initial_policy=K_sim,
-    )
-    print(f'P_sim: {lqr2.P}')
+    # ------ get centralized P from centralized K ------
+    # lqr2 = LQR()
+    #
+    # lqr2._init_gpi(lq, s0, K_sim)
+    #
+    # lqr2._policy_eval_qlearn_rls(
+    #     lq,
+    #     gamma,
+    #     eps,
+    #     max_policy_evals=5000,
+    #     reset_every_n=reset_every_n,
+    #     gpi_iter=0,
+    #     initial_state=s0,
+    # )
+    # print(f'P_sim: {lqr2.P}')
 
 
 def problem_setup():

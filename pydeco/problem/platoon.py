@@ -1,14 +1,67 @@
 import numpy as np
 
-from pydeco.problem.env import Env
+from pydeco.problem.env import Env, MultiAgentEnv
 from pydeco.types import *
 
 
-class VehiclePlatoon(Env):
+# model from сaiazzo21
+class EVPlatoon(MultiAgentEnv):
+    def __init__(
+            self,
+            n_agents: int,
+            communication_map: dict[int, Sequence[int]],
+            state_reward_matrix: Tensor,
+            action_reward_matrix: Tensor,
+    ):
+        self._n_agents = n_agents
+
+        # create envs
+        # TODO
+        self._env_map = {
+            i: EVehicle(
+                communication_map[i], coupled_dynamics, coupled_rewards,
+                system_matrix, control_matrix, state_reward_matrix, action_reward_matrix,
+            ) for i in range(n_agents)
+        }
+
+    def step(self, agent_id: int, action: Tensor, **kwargs) -> Sequence[Tuple[Scalar, Tensor]]:
+        raise NotImplementedError
+
+    def reset(self, initial_states: Tensors, **kwargs) -> Tensors:
+        # TODO init individual states + cache
+        raise NotImplementedError
+
+
+class EVehicle(Env):
+    def __init__(self, h=0.8):
+
+
+        self._h = h
+
     def reset(self, initial_state: Tensor, **kwargs) -> Tensor:
         pass
 
+
+    def _ev_model(
+            self,
+            u,
+    ):
+        p, v = self._state
+
+        part1 = u * nu / R / m
+
+        part2 = g * np.sin(theta)
+
+        part3 = g * np.cos(theta) * Cr (c1 * v + c2) * 1e-3
+
+        part4 = 0.5 * rho * Cd * d *A *v / m
+
+        v_next = part1 - part2 - part3 - part4
+
+        return [v, v_next]
+
     def _transition_fn(self, action: Tensor, **kwargs) -> Tensor:
+        # TODO Euler step
         pass
 
     def _reward_fn(self, action: Tensor, **kwargs) -> Scalar:

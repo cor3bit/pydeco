@@ -19,6 +19,8 @@ class MultiAgentLQ(MultiAgentEnv):
             state_reward_matrix: Tensor,
             action_reward_matrix: Tensor,
     ):
+        self._n_agents = n_agents
+
         # create envs
         self._env_map = {
             i: LocalLQ(
@@ -26,13 +28,6 @@ class MultiAgentLQ(MultiAgentEnv):
                 system_matrix, control_matrix, state_reward_matrix, action_reward_matrix,
             ) for i in range(n_agents)
         }
-
-        # local cache
-        self._n_agents = n_agents
-        self._curr_states = None
-        self._next_states = None
-        self._curr_rewards = None
-        self._curr_actions = None
 
     def step(
             self,
@@ -64,69 +59,6 @@ class MultiAgentLQ(MultiAgentEnv):
         self._next_states = {i: None for i in range(self._n_agents)}
         self._curr_rewards = {i: None for i in range(self._n_agents)}
         self._curr_actions = {i: None for i in range(self._n_agents)}
-
-    def roll_states(self):
-        self._curr_states = self._next_states
-        self._next_states = {i: None for i in range(self._n_agents)}
-
-    def get_state(
-            self,
-            agent_id: int,
-    ) -> Tensor:
-        return self._curr_states[agent_id]
-
-    def get_next_state(
-            self,
-            agent_id: int,
-    ) -> Tensor:
-        return self._next_states[agent_id]
-
-    def get_action(
-            self,
-            agent_id: int,
-    ) -> Tensor:
-        return self._curr_actions[agent_id]
-
-    def get_info(
-            self,
-            agent_id: int,
-    ) -> Tensors:
-        neighbors = self._env_map[agent_id].neighbors
-        return [self.get_state(neighbor_id) for neighbor_id in neighbors]
-
-    def get_next_info(
-            self,
-            agent_id: int,
-    ) -> Tensors:
-        neighbors = self._env_map[agent_id].neighbors
-        return [self.get_next_state(neighbor_id) for neighbor_id in neighbors]
-
-    def get_reward(
-            self,
-            agent_id: int,
-    ) -> Scalar:
-        return self._curr_rewards[agent_id]
-
-    def set_reward(
-            self,
-            agent_id: int,
-            reward: Scalar,
-    ):
-        self._curr_rewards[agent_id] = reward
-
-    def set_action(
-            self,
-            agent_id: int,
-            action: Tensor,
-    ):
-        self._curr_actions[agent_id] = action
-
-    def set_next_state(
-            self,
-            agent_id: int,
-            next_state: Tensor,
-    ):
-        self._next_states[agent_id] = next_state
 
 
 class LocalLQ(LQ):
@@ -230,7 +162,7 @@ class LocalLQ(LQ):
     #     state_info = np.concatenate((self.get_state(), *information))
     #     return self._A @ state_info + self._B @ action
 
-    def get_full_model(self):
+    def get_model(self):
         n_agents = 1 + self.n_neighbors
         I_n = np.eye(n_agents)
         A_ = np.kron(I_n, self._A)

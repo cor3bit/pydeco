@@ -71,12 +71,12 @@ def test_fit_qlearn(goerges19):
 
     # train params
     gamma = 1.0
-    alpha = 0.0005
+    alpha = 0.01
     eps = 1e-8
 
-    n_evals = 100
-    n_improves = 70
-    reset_every_n = 1000
+    n_evals = 200
+    n_improves = 30
+    reset_every_n = 5
 
     lqr.train(
         lq,

@@ -18,6 +18,7 @@ class TrainMethod(metaclass=ContainerMeta):
 class PolicyEvaluation(metaclass=ContainerMeta):
     QLEARN = 'Q-learning'
     QLEARN_RLS = 'RLS Q-learning'
+    QLEARN_GN = 'Gauss-Newton Q-learning'
 
 
 class PolicyType(metaclass=ContainerMeta):
