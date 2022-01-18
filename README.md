@@ -21,16 +21,21 @@ TODO
 ### Supported Environments
 
 * Vanilla LQ
-* Centralized LQ
-* Distributed LQ
-* Non-linear Vehicle Platoon Model (in progress)
+* Centralized LQ (each agent has access to the full state)
+* Distributed LQ (local information)
+* Non-linear Vehicle Platoon Model [in progress]
 
 ### Supported Controllers
 
-* LQR Analytical
-* LQR GPI (RLS Q-learning Policy Evaluation)  
-* LQR GPI (Q-learning Policy Evaluation)
-* Multi-agent LQR GPI (in progress)
+* Single-agent Analytical LQR
+* Single-agent GPI
+  * RLS Policy Evaluation
+  * Q-learning Policy Evaluation
+  * Q-learning GN Policy Evaluation
+* Multi-agent GPI
+  * RLS Policy Evaluation
+  * Q-learning Policy Evaluation
+  * Q-learning GN Policy Evaluation
 
 
 ### Acknowledgements
